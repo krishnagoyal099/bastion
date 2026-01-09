@@ -1,0 +1,33 @@
+# Rust build artifacts
+target/
+*.wasm
+
+# Environment files  
+.env
+*.pem
+secret_key.pem
+
+# Keys directory
+keys/
+
+# IDE
+.idea/
+.vscode/
+
+# Node modules
+node_modules/
+
+# Build logs
+*.log
+build.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# History files
+.bastion_history.json
+
+# Lock files (for clean commits)
+Cargo.lock
