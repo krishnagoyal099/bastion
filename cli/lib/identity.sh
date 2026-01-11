@@ -29,10 +29,12 @@ declare -A IDENTITIES=(
 
 PERSISTENT_IDENTITIES_FILE="$BASTION_HOME/.identities"
 
-# Load persistent identities
+# Load persistent identities safely
 if [[ -f "$PERSISTENT_IDENTITIES_FILE" ]]; then
     while IFS="=" read -r key value; do
-        if [[ -n "$key" ]]; then
+        if [[ -n "$key" && -n "$value" ]]; then
+            # Clean possible carriage returns or whitespace
+            key=$(echo "$key" | tr -d '[:space:]')
             IDENTITIES["$key"]="$value"
         fi
     done < "$PERSISTENT_IDENTITIES_FILE"
@@ -122,33 +124,39 @@ identity_list() {
     
     local current=$(get_current_identity)
     
-    printf "${C_BOLD}${C_WHITE}%-12s %-20s %-35s %s${C_RESET}\n" "Name" "Key File" "Description" "Status"
-    echo "────────────────────────────────────────────────────────────────────────────"
+    # Header
+    printf "${C_BOLD}${C_WHITE}  %-12s %-20s %-30s %s${C_RESET}\n" "Name" "Key File" "Description" "Status"
+    echo "  ──────────────────────────────────────────────────────────────────────────"
     
-    for identity in "${!IDENTITIES[@]}"; do
+    # Sort keys for consistent display
+    local sorted_ids=($(printf '%s\n' "${!IDENTITIES[@]}" | sort))
+    
+    for identity in "${sorted_ids[@]}"; do
         local key_file="${IDENTITIES[$identity]%%:*}"
         local desc="${IDENTITIES[$identity]#*:}"
         local status=""
-        local icon=""
+        local prefix="  "
         
         if [[ "$identity" == "$current" ]]; then
             status="${C_SUCCESS}● ACTIVE${C_RESET}"
-            icon="${C_SUCCESS}→${C_RESET}"
+            prefix="${C_SUCCESS}→ ${C_RESET}"
         else
             status="${C_DIM}○ inactive${C_RESET}"
-            icon=" "
         fi
         
         # Check if key file exists
         local key_path="$KEYS_DIR/$key_file"
-        local key_status
-        if [[ -f "$key_path" ]]; then
-            key_status="${C_SUCCESS}✓${C_RESET}"
-        else
-            key_status="${C_ERROR}✗ missing${C_RESET}"
+        if [[ ! -f "$key_path" ]]; then
+            status="${C_ERROR}✗ MISSING${C_RESET}"
         fi
         
-        printf "%s %-12s %-20s %-35s %b\n" "$icon" "$identity" "$key_file" "$desc" "$status"
+        # Determine format string based on length to allow clean columns
+        # Truncate description if too long
+        if [[ ${#desc} -gt 30 ]]; then
+            desc="${desc:0:27}..."
+        fi
+        
+        printf "%b%-12s %-20s %-30s %b\n" "$prefix" "$identity" "$key_file" "$desc" "$status"
     done
     echo ""
 }
