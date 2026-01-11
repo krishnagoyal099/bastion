@@ -76,8 +76,8 @@ render_ticker() {
     echo -e "${C_WHITE}"
     printf "  ${C_BOLD}CSPR/mUSD${C_RESET}      ${C_CYAN}\$%.6f${C_WHITE}  ${change_color}%s %.2f%%${C_WHITE}\n" "$price" "$change_arrow" "$change"
     echo "  ────────────────────────────────────────"
-    printf "  Pool A:         ${C_CYAN}%-10s CSPR${C_WHITE} (\$%-9s)\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
-    printf "  Pool B:         ${C_CYAN}%-10s mUSD${C_WHITE} (Vol: \$%-6s)\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
+    printf "  Pool A:         ${C_CYAN}%-10s CSPR${C_WHITE} (\$%-5s)\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
+    printf "  Pool B:         ${C_CYAN}%-10s mUSD${C_WHITE} (Vol: \$%-5s)\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
     printf "  LP Tokens:      ${C_PURPLE}%-10s${C_WHITE}      (Fee: 0.3%%)\n" "$(printf "%'d" $lp_tokens)"
     echo -e "${C_RESET}"
 }
@@ -123,8 +123,8 @@ run_ticker() {
     echo -e "${C_DIM}Press Ctrl+C to return to menu${C_RESET}"
     echo ""
     
-    # Reserve space for the widget (9 lines)
-    for i in {1..9}; do echo ""; done
+    # Reserve space for the widget (7 lines)
+    for i in {1..7}; do echo ""; done
     
     # Save cursor position at start of widget area
     tput sc
@@ -149,16 +149,12 @@ run_ticker() {
         
         # Render Frame
         render_ticker "$data"
-        echo ""
         
         # Render Sparkline
         if (( ${#price_history[@]} >= 5 )); then
             render_sparkline "${price_history[@]}"
-        else
-            echo "" 
         fi
         
-        echo ""
         echo -e "${C_DIM}Last update: $(date '+%H:%M:%S') │ Updates every 2s${C_RESET}"
         
         sleep 2
