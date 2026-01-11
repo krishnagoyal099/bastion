@@ -72,16 +72,13 @@ render_ticker() {
     # Calculate depths
     local depth_cspr=$(python3 -c "print(round($reserve_cspr * $price, 2))")
     
-    # Render box with strict padding
-    # Total inner width: 62 chars
+    # Render Clean List (No Borders)
     echo -e "${C_WHITE}"
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    printf "║  ${C_BOLD}CSPR/mUSD${C_RESET}${C_WHITE} │ Price: ${C_CYAN}\$%-8.6f${C_WHITE} │ ${change_color}%s %-6.2f%%${C_WHITE}           ║\n" "$price" "$change_arrow" "$change"
-    echo "╠══════════════════════════════════════════════════════════════╣"
-    printf "║  Pool A: ${C_CYAN}%-12s CSPR${C_WHITE} │ Depth: \$%-13s       ║\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
-    printf "║  Pool B: ${C_CYAN}%-12s mUSD${C_WHITE} │ Volume 24h: \$%-8s       ║\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
-    printf "║  LP Tokens: ${C_PURPLE}%-12s${C_WHITE}      │ Fee: 0.3%%                 ║\n" "$(printf "%'d" $lp_tokens)"
-    echo "╚══════════════════════════════════════════════════════════════╝"
+    printf "  ${C_BOLD}CSPR/mUSD${C_RESET}      ${C_CYAN}\$%.6f${C_WHITE}  ${change_color}%s %.2f%%${C_WHITE}\n" "$price" "$change_arrow" "$change"
+    echo "  ────────────────────────────────────────"
+    printf "  Pool A:         ${C_CYAN}%-10s CSPR${C_WHITE} (\$%-9s)\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
+    printf "  Pool B:         ${C_CYAN}%-10s mUSD${C_WHITE} (Vol: \$%-6s)\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
+    printf "  LP Tokens:      ${C_PURPLE}%-10s${C_WHITE}      (Fee: 0.3%%)\n" "$(printf "%'d" $lp_tokens)"
     echo -e "${C_RESET}"
 }
 
@@ -102,9 +99,10 @@ render_sparkline() {
     
     for price in "${prices[@]}"; do
         if (( $(echo "$max == $min" | bc -l) )); then
-            local idx=4
+            local idx=3
         else
-            local idx=$(python3 -c "print(int(($price - $min) / ($max - $min) * 7))")
+            # Ensure index is clamped between 0 and 7
+            local idx=$(python3 -c "val = int(($price - $min) / ($max - $min) * 7); print(max(0, min(7, val)))")
         fi
         echo -n "${chars[$idx]}"
     done
