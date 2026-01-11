@@ -85,6 +85,35 @@ get_identity_description() {
 }
 
 # ═══════════════════════════════════════════════════════════════════
+# Key Generation Helper
+# ═══════════════════════════════════════════════════════════════════
+
+generate_identity_key() {
+    local name="$1"
+    local key_path="$KEYS_DIR/${name}.pem"
+    local temp_dir="$KEYS_DIR/${name}_temp_dir"
+    
+    # Check if temp dir exists and remove it safely
+    if [[ -d "$temp_dir" ]]; then rm -rf "$temp_dir"; fi
+    
+    casper-client keygen "$temp_dir" >/dev/null 2>&1
+    
+    if [[ -f "$temp_dir/secret_key.pem" ]]; then
+        mv "$temp_dir/secret_key.pem" "$key_path"
+        rm -rf "$temp_dir"
+        return 0
+    else
+        # Fallback for older clients or different output behavior
+        if [[ -f "${temp_dir}_secret_key.pem" ]]; then
+             mv "${temp_dir}_secret_key.pem" "$key_path"
+             rm -f "${temp_dir}_public_key.pem" "${temp_dir}_public_key_hex"
+             return 0
+        fi
+    fi
+    return 1
+}
+
+# ═══════════════════════════════════════════════════════════════════
 # Identity Commands
 # ═══════════════════════════════════════════════════════════════════
 
@@ -150,12 +179,12 @@ identity_switch() {
         msg_error "Key file not found: $key_file"
         msg_info "Creating placeholder key..."
         mkdir -p "$KEYS_DIR"
-        # Generate a new key for demo purposes
-        casper-client keygen "$KEYS_DIR/${target}_temp" 2>/dev/null || true
-        if [[ -f "$KEYS_DIR/${target}_temp_secret_key.pem" ]]; then
-            mv "$KEYS_DIR/${target}_temp_secret_key.pem" "$key_file"
-            rm -f "$KEYS_DIR/${target}_temp_public_key.pem" "$KEYS_DIR/${target}_temp_public_key_hex"
-            msg_success "Generated new key: $key_file"
+        
+        if generate_identity_key "$target"; then
+             msg_success "Generated new key: $key_file"
+        else
+             msg_error "Failed to generate key."
+             return 1
         fi
     fi
     
@@ -253,19 +282,10 @@ identity_menu() {
                     fi
 
                     local key_path="$KEYS_DIR/${name}.pem"
-                    local temp_dir="$KEYS_DIR/${name}_temp_dir"
-                    
                     msg_info "Generating key pair..."
-                    # Check if temp dir exists and remove it safely
-                    if [[ -d "$temp_dir" ]]; then rm -rf "$temp_dir"; fi
                     
-                    casper-client keygen "$temp_dir" >/dev/null 2>&1
-                    
-                    if [[ -f "$temp_dir/secret_key.pem" ]]; then
-                        mv "$temp_dir/secret_key.pem" "$key_path"
-                        rm -rf "$temp_dir"
-                        
-                        # Add to array
+                    if generate_identity_key "$name"; then
+                         # Add to array
                         IDENTITIES["$name"]="${name}.pem:Custom identity"
                         
                         # Persist
@@ -275,22 +295,7 @@ identity_menu() {
                         sleep 1
                     else
                          msg_error "Failed to generate key pair."
-                         # check if it created files in the old format (just in case version diff)
-                         if [[ -f "${temp_dir}_secret_key.pem" ]]; then
-                              mv "${temp_dir}_secret_key.pem" "$key_path"
-                              rm -f "${temp_dir}_public_key.pem" "${temp_dir}_public_key_hex"
-                              
-                              # Add to array
-                              IDENTITIES["$name"]="${name}.pem:Custom identity"
-                              
-                              # Persist
-                              echo "$name=${name}.pem:Custom identity" >> "$PERSISTENT_IDENTITIES_FILE"
-                              
-                              msg_success "Created new identity: $name"
-                              sleep 1
-                         else
-                              sleep 1
-                         fi
+                         sleep 1
                     fi
                 fi
                 ;;
@@ -300,3 +305,26 @@ identity_menu() {
         esac
     done
 }
+
+# ═══════════════════════════════════════════════════════════════════
+# Auto-Initialize Defaults
+# ═══════════════════════════════════════════════════════════════════
+
+ensure_default_identities() {
+    # If the main 'user' key is missing, assume fresh install and generate defaults
+    if [[ ! -f "$KEYS_DIR/user.pem" ]]; then
+        echo -e "${C_DIM}Initializing default Bastion identities...${C_RESET}"
+        mkdir -p "$KEYS_DIR"
+        
+        for id in "user" "whale" "attacker"; do
+             if [[ ! -f "$KEYS_DIR/${id}.pem" ]]; then
+                  echo -ne "  Creating ${C_CYAN}$id${C_RESET}..."
+                  generate_identity_key "$id"
+                  echo -e "${C_SUCCESS} Done${C_RESET}"
+             fi
+        done
+        echo ""
+    fi
+}
+
+ensure_default_identities
