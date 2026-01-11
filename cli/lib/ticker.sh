@@ -74,10 +74,10 @@ render_ticker() {
     
     # Render Clean List (No Borders)
     echo -e "${C_WHITE}"
-    printf "  ${C_BOLD}CSPR/mUSD${C_RESET}      ${C_CYAN}\$%.6f${C_WHITE}  ${change_color}%s %.2f%%${C_WHITE}\n" "$price" "$change_arrow" "$change"
+    printf "  ${C_BOLD}CSPR/mUSD${C_RESET}      ${C_CYAN}\$%.6f${C_WHITE}  ${change_color}%s %.2f%s${C_WHITE}\n" "$price" "$change_arrow" "$change" "%"
     echo "  ────────────────────────────────────────"
-    printf "  Pool A:         ${C_CYAN}%-10s CSPR${C_WHITE} (\$s)\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
-    printf "  Pool B:         ${C_CYAN}%-10s mUSD${C_WHITE} (Vol: \$s)\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
+    printf "  Pool A:         ${C_CYAN}%-10s CSPR${C_WHITE} (\$%s)\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
+    printf "  Pool B:         ${C_CYAN}%-10s mUSD${C_WHITE} (Vol: \$%s)\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
     printf "  LP Tokens:      ${C_PURPLE}%-10s${C_WHITE}      (Fee: 0.3%%)\n" "$(printf "%'d" $lp_tokens)"
     echo -e "${C_RESET}"
 }
@@ -126,8 +126,8 @@ run_ticker() {
     # Save cursor position at start of widget area
     tput sc
     
-    # Reserve space for the widget (7 lines) to ensure scroll buffer
-    for i in {1..7}; do echo ""; done
+    # Reserve space for the widget (2 lines) to ensure scroll buffer
+    for i in {1..2}; do echo ""; done
     
     while true; do
         # Restore cursor to top of widget area
