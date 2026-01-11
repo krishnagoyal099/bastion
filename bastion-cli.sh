@@ -61,34 +61,34 @@ main_menu() {
         # Main Options
         local choice
         choice=$($GUM_BIN choose --header "Select Operation" \
-            "📈 Live Ticker" \
-            "🆔 Identity Manager" \
-            "💧 Liquidity Pools" \
-            "💰 Arbitrage Bot" \
-            "🐳 Whale Simulation" \
-            "🔐 ZK-Proof Generator" \
-            "📜 Transaction Ledger" \
-            "🎮 Order Flow Sim" \
-            "❌ Quit")
+            "Live Ticker" \
+            "Identity Manager" \
+            "Liquidity Pools" \
+            "Arbitrage Bot" \
+            "Whale Simulation" \
+            "ZK-Proof Generator" \
+            "Transaction Ledger" \
+            "Order Flow Sim" \
+            "Quit")
             
         case "$choice" in
-            "📈 Live Ticker") 
+            "Live Ticker") 
                 if command -v ticker_menu &>/dev/null; then ticker_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "🆔 Identity Manager")    
+            "Identity Manager")    
                 if command -v identity_menu &>/dev/null; then identity_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "💧 Liquidity Pools")   
+            "Liquidity Pools")   
                 if command -v liquidity_menu &>/dev/null; then liquidity_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "💰 Arbitrage Bot")   
+            "Arbitrage Bot")   
                 if command -v arbitrage_menu &>/dev/null; then arbitrage_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "🐳 Whale Simulation")  
+            "Whale Simulation")  
                 if command -v whale_menu &>/dev/null; then whale_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "🔐 ZK-Proof Generator")    
+            "ZK-Proof Generator")    
                 if command -v zkproof_menu &>/dev/null; then zkproof_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "📜 Transaction Ledger")      
+            "Transaction Ledger")      
                 if command -v ledger_menu &>/dev/null; then ledger_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "🎮 Order Flow Sim")  
+            "Order Flow Sim")  
                 if command -v simulation_menu &>/dev/null; then simulation_menu; else msg_error "Module not loaded"; sleep 1; fi ;;
-            "❌ Quit"|"")     
+            "Quit"|"")     
                 clear_screen
                 echo -e "${C_GREEN}Thank you for using Bastion!${C_RESET}"
                 exit 0 
