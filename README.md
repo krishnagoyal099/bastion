@@ -10,6 +10,18 @@ Privacy-preserving dark pool trading protocol on Casper Network with ZK proofs a
 curl -fsSL https://raw.githubusercontent.com/krishnagoyal099/bastion/main/install.sh | bash
 ```
 
+**Windows (via WSL):**
+
+```powershell
+# Step 1: Open PowerShell as Administrator and install WSL
+wsl --install
+
+# Step 2: Restart your computer
+
+# Step 3: Open Ubuntu from Start Menu and run
+curl -fsSL https://raw.githubusercontent.com/krishnagoyal099/bastion/main/install.sh | bash
+```
+
 After installation, restart your terminal and run:
 
 ```bash
@@ -101,7 +113,7 @@ rm -rf ~/.bastion ~/.local/bin/bastion
 | Linux (ARM64) | Supported |
 | macOS (Intel) | Supported |
 | macOS (Apple Silicon) | Supported |
-| Windows | Not Supported |
+| Windows (via WSL) | Supported |
 
 ## License
 
