@@ -1,133 +1,112 @@
 # Bastion
 
-A privacy-preserving dark pool trading protocol built on the Casper Network. Bastion enables institutional-grade order execution with zero-knowledge proofs, protecting traders from front-running and MEV extraction.
+Privacy-preserving dark pool trading protocol on Casper Network with ZK proofs and AMM integration.
 
-## Overview
+## Quick Install
 
-Bastion addresses critical challenges in decentralized trading by implementing a dark pool mechanism where order details remain hidden until execution.
+**Linux / macOS:**
 
-| Issue | Impact | Bastion Solution |
-|-------|--------|------------------|
-| Front-running | Traders receive worse execution prices | Orders encrypted until matching |
-| MEV Extraction | Value extracted by block producers | Time-locked commit-reveal scheme |
-| Information Leakage | Market moves against large orders | Zero-knowledge order proofs |
+```bash
+curl -fsSL https://raw.githubusercontent.com/krishnagoyal099/bastion/main/install.sh | bash
+```
 
----
+After installation, restart your terminal and run:
+
+```bash
+bastion
+```
+
+## Requirements
+
+| Dependency | Purpose |
+|------------|---------|
+| curl | Downloading files |
+| git | Version control |
+| jq | JSON processing |
+| gum | Interactive UI (auto-installed) |
+
+The installer will automatically install `gum` if not present.
+
+## Manual Installation
+
+```bash
+# Clone repository
+git clone https://github.com/krishnagoyal099/bastion.git
+cd bastion
+
+# Run directly
+chmod +x bastion-cli.sh
+./bastion-cli.sh
+```
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Dark Limit Orders | Hidden price and quantity until execution |
+| AMM Integration | Liquidity provision and instant swaps |
+| ZK Proofs | Privacy-preserving order verification |
+| Whale Detection | Large wallet movement tracking |
+| Arbitrage Scanner | Cross-DEX opportunity detection |
+| Price Ticker | Real-time market data |
 
 ## Architecture
 
 ```mermaid
 graph TB
-    subgraph Client Layer
-        CLI[Bastion CLI]
-    end
-    
-    subgraph Smart Contracts
-        BASTION[Bastion Contract]
-        AMM[PublicAMM]
-        TOKEN[MockUSD - CEP-18]
-    end
-    
-    subgraph Casper Network
-        CHAIN[Casper Blockchain]
-    end
-    
-    CLI --> BASTION
-    BASTION --> AMM
-    AMM --> TOKEN
-    BASTION --> CHAIN
+    CLI[Bastion CLI] --> BASTION[Bastion Contract]
+    BASTION --> AMM[PublicAMM]
+    AMM --> TOKEN[MockUSD]
+    BASTION --> CHAIN[Casper Network]
 ```
-
----
-
-## Features
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| Dark Limit Orders | Hidden price and quantity until execution | Available |
-| AMM Integration | Liquidity provision and swaps | Available |
-| ZK Proofs | Privacy-preserving order verification | Available |
-| Whale Detection | Large wallet tracking | Available |
-
----
-
-## Installation
-
-### Prerequisites
-
-| Requirement | Minimum Version |
-|-------------|-----------------|
-| Rust | 1.73.0 |
-| casper-client | 2.0.0 |
-| gum | 0.13.0 |
-
-### Build from Source
-
-```bash
-git clone https://github.com/krishnagoyal099/bastion.git
-cd bastion
-
-# Build smart contracts
-cd contract
-cargo build --release --target wasm32-unknown-unknown
-
-# Run CLI
-chmod +x bastion-cli.sh
-./bastion
-```
-
----
-
-## Smart Contracts
-
-| Contract | Purpose | Language |
-|----------|---------|----------|
-| Bastion | Dark pool order management | Rust / Odra |
-| PublicAMM | Automated market maker | Rust / Odra |
-| MockUSD | Test token (CEP-18) | Rust |
-
----
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Create `~/.bastion/.env` with your settings:
 
 ```bash
 CASPER_RPC_URL="https://rpc.testnet.casperlabs.io/rpc"
 CASPER_CHAIN_NAME="casper-test"
-PRIVATE_KEY_PATH="./keys/secret_key.pem"
+PRIVATE_KEY_PATH="~/.bastion/keys/secret_key.pem"
 ```
 
----
+## Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/krishnagoyal099/bastion/main/install.sh | bash -s -- --uninstall
+```
+
+Or manually:
+
+```bash
+rm -rf ~/.bastion ~/.local/bin/bastion
+```
 
 ## Project Structure
 
 ```
-bastion/
-├── contract/           # Bastion smart contract
-├── amm_contract/       # PublicAMM smart contract
-├── cep18/              # CEP-18 token implementation
-├── cli/                # Terminal interface
-│   └── lib/            # Module implementations
+~/.bastion/
+├── bastion-cli.sh      # Main entry point
+├── cli/
+│   ├── lib/            # Feature modules
+│   └── config/         # Configuration
 └── keys/               # Local key storage
 ```
 
----
+## Supported Platforms
 
-## Security
-
-| Threat | Mitigation |
-|--------|------------|
-| Order front-running | Encrypted order submission |
-| Block producer MEV | Time-locked reveal |
-| Key compromise | Hardware wallet support |
-
----
+| Platform | Status |
+|----------|--------|
+| Linux (x86_64) | Supported |
+| Linux (ARM64) | Supported |
+| macOS (Intel) | Supported |
+| macOS (Apple Silicon) | Supported |
+| Windows | Not Supported |
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License
 
 ---
 
-**Bastion Protocol** - Privacy-Preserving Dark Pool Trading on Casper Network
+**Bastion Protocol** - Dark Pool Trading on Casper Network
