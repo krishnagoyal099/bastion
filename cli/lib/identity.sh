@@ -21,11 +21,14 @@ mkdir -p "$KEYS_DIR"
 
 # Available identities
 # Available identities (defaults)
-declare -A IDENTITIES=(
-    ["user"]="user.pem:Primary trading account"
-    ["whale"]="whale.pem:Large position account"
-    ["attacker"]="attacker.pem:MEV simulation account"
-)
+# Ensure clean associative array
+unset IDENTITIES
+declare -A IDENTITIES
+
+# Default entries
+IDENTITIES["user"]="user.pem:Primary trading account"
+IDENTITIES["whale"]="whale.pem:Large position account"
+IDENTITIES["attacker"]="attacker.pem:MEV simulation account"
 
 PERSISTENT_IDENTITIES_FILE="$BASTION_HOME/.identities"
 
@@ -40,12 +43,23 @@ if [[ -f "$PERSISTENT_IDENTITIES_FILE" ]]; then
     done < "$PERSISTENT_IDENTITIES_FILE"
 fi
 
+# Sanity check: If array somehow became indexed (due to old bash or eval), 
+# string keys might map to [0]. We should remove [0] if it's not a valid name.
+if [[ -n "${IDENTITIES[0]}" ]]; then
+    unset "IDENTITIES[0]"
+fi
+
 get_current_identity() {
+    local current="user"
     if [[ -f "$CURRENT_IDENTITY_FILE" ]]; then
-        cat "$CURRENT_IDENTITY_FILE"
-    else
-        echo "user"
+        current=$(cat "$CURRENT_IDENTITY_FILE")
     fi
+    
+    # If current stored identity is invalid (e.g. "0"), revert to user
+    if [[ "$current" == "0" ]]; then
+        current="user"
+    fi
+    echo "$current"
 }
 
 set_current_identity() {
