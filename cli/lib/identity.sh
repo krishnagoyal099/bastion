@@ -5,12 +5,14 @@
 # Config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Use persistent user directory for keys and config which handles multiple sessions
+# Use persistent user directory for config, but keep keys in project for now
+# based on user screenshot showing keys/ folder in project root
 BASTION_HOME="$HOME/.bastion"
-KEYS_DIR="$BASTION_HOME/keys"
+KEYS_DIR="$SCRIPT_DIR/../../keys"
 CURRENT_IDENTITY_FILE="$BASTION_HOME/.current_identity"
 
-# Ensure directories exist
+# Ensure config directory exists
+mkdir -p "$BASTION_HOME"
 mkdir -p "$KEYS_DIR"
 
 # ═══════════════════════════════════════════════════════════════════
