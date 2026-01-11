@@ -1,0 +1,300 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════
+# BASTION - ZK-Powered Anti-MEV Dark Pool
+# Production TUI Suite
+# ═══════════════════════════════════════════════════════════════════
+
+set -e
+
+# Determine script directory (resolving symlinks)
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+BASTION_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+cd "$BASTION_DIR/.."
+
+# Add gum to PATH
+export PATH="$PATH:$HOME/.local/bin"
+
+# Source all libraries from lib/ subdirectory
+source "$BASTION_DIR/lib/ui.sh"
+source "$BASTION_DIR/lib/network.sh"
+source "$BASTION_DIR/lib/identity.sh"
+source "$BASTION_DIR/lib/ledger.sh"
+source "$BASTION_DIR/lib/zkproof.sh"
+source "$BASTION_DIR/lib/simulation.sh"
+source "$BASTION_DIR/lib/whale.sh"
+source "$BASTION_DIR/lib/ticker.sh"
+source "$BASTION_DIR/lib/arbitrage.sh"
+source "$BASTION_DIR/lib/liquidity.sh"
+
+# ═══════════════════════════════════════════════════════════════════
+# Initialization
+# ═══════════════════════════════════════════════════════════════════
+
+init_bastion() {
+    # Initialize ledger
+    init_ledger
+    
+    # Ensure keys directory exists
+    mkdir -p "$BASTION_DIR/../keys"
+    
+    # Copy existing secret key if available
+    if [[ -f "$BASTION_DIR/../secret_key.pem" ]] && [[ ! -f "$BASTION_DIR/../keys/user.pem" ]]; then
+        cp "$BASTION_DIR/../secret_key.pem" "$BASTION_DIR/../keys/user.pem"
+    fi
+    
+    # Set default identity
+    if [[ ! -f "$BASTION_DIR/../keys/.current_identity" ]]; then
+        echo "user" > "$BASTION_DIR/../keys/.current_identity"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Quick Trade
+# ═══════════════════════════════════════════════════════════════════
+
+quick_trade() {
+    clear_screen
+    show_banner
+    
+    draw_section "Quick Trade via Bastion"
+    
+    local side
+    side=$(~/.local/bin/gum choose "BUY CSPR" "SELL CSPR")
+    
+    local amount
+    amount=$(~/.local/bin/gum input --placeholder "Amount (CSPR)" --value "100")
+    
+    echo ""
+    echo -e "${C_BOLD}Order Summary:${C_RESET}"
+    echo -e "  Side:   ${C_CYAN}$side${C_RESET}"
+    echo -e "  Amount: ${C_CYAN}$amount CSPR${C_RESET}"
+    echo -e "  Route:  ${C_PURPLE}Bastion Dark Pool${C_RESET} (MEV Protected)"
+    echo ""
+    
+    ~/.local/bin/gum confirm "Submit order?" && {
+        echo ""
+        
+        # Generate ZK proof
+        local proof_result
+        proof_result=$(simulate_zk_proof "$amount" "${side%% *}")
+        
+        echo ""
+        msg_success "Order submitted to Bastion Dark Pool!"
+        
+        local tx_hash="order_$(openssl rand -hex 16)"
+        echo -e "  TX: ${C_DIM}$tx_hash${C_RESET}"
+        
+        # Log to ledger
+        local order_side="${side%% *}"
+        add_transaction "$tx_hash" "order" "$amount" "success" "$(get_current_identity)" '{"side":"'"$order_side"'"}'
+    }
+    
+    echo ""
+    ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Main Menu
+# ═══════════════════════════════════════════════════════════════════
+
+main_menu() {
+    while true; do
+        clear_screen
+        show_banner
+        
+        # Get current status
+        local identity=$(get_current_identity)
+        local status=$(check_connection)
+        local block=$(get_block_height)
+        
+        show_status_bar "casper-test" "$status" "$block" "$identity"
+        
+        echo ""
+        echo -e "${C_BOLD}${C_WHITE}  Mission Control${C_RESET}"
+        echo ""
+        
+        local choice
+        choice=$(~/.local/bin/gum choose --cursor.foreground="117" --selected.foreground="114" \
+            "🔐  Quick Trade (Bastion Dark Pool)" \
+            "💧  Liquidity Command Center" \
+            "👥  Identity Manager" \
+            "📜  Transaction Ledger" \
+            "📊  Live Market Ticker" \
+            "📉  Arbitrage Scanner" \
+            "🐳  Whale Mode (Iceberg Orders)" \
+            "⚔️   MEV Attack Simulation" \
+            "🔬  ZK Proof Demo" \
+            "⚙️   Settings" \
+            "🚪  Exit")
+        
+        case "$choice" in
+            *"Quick Trade"*)
+                quick_trade
+                ;;
+            *"Liquidity"*)
+                liquidity_menu
+                ;;
+            *"Identity"*)
+                identity_menu
+                ;;
+            *"Ledger"*)
+                ledger_menu
+                ;;
+            *"Ticker"*)
+                ticker_menu
+                ;;
+            *"Arbitrage"*)
+                arbitrage_menu
+                ;;
+            *"Whale"*)
+                whale_menu
+                ;;
+            *"MEV"*)
+                mev_demo
+                ;;
+            *"ZK Proof"*)
+                zk_demo
+                ;;
+            *"Settings"*)
+                settings_menu
+                ;;
+            *"Exit"*)
+                clear_screen
+                echo -e "${C_PURPLE}${C_BOLD}"
+                echo "  Thanks for using Bastion! ♜"
+                echo -e "${C_RESET}"
+                exit 0
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Settings Menu
+# ═══════════════════════════════════════════════════════════════════
+
+settings_menu() {
+    while true; do
+        clear_screen
+        show_banner
+        
+        draw_section "Settings"
+        
+        echo -e "  ${C_BOLD}Network:${C_RESET}    ${CHAIN_NAME}"
+        echo -e "  ${C_BOLD}RPC:${C_RESET}        ${CSPR_CLOUD_RPC}"
+        echo -e "  ${C_BOLD}Identity:${C_RESET}   $(get_current_identity)"
+        echo ""
+        echo -e "  ${C_BOLD}Token:${C_RESET}"
+        echo -e "    ${C_DIM}${TOKEN_HASH}${C_RESET}"
+        echo -e "  ${C_BOLD}AMM:${C_RESET}"
+        echo -e "    ${C_DIM}${AMM_HASH}${C_RESET}"
+        echo -e "  ${C_BOLD}Bastion:${C_RESET}"
+        echo -e "    ${C_DIM}${BASTION_HASH}${C_RESET}"
+        echo ""
+        
+        local choice
+        choice=$(~/.local/bin/gum choose \
+            "View Contract Addresses" \
+            "Test Network Connection" \
+            "← Back to Main Menu")
+        
+        case "$choice" in
+            "View Contract Addresses")
+                echo ""
+                echo -e "${C_BOLD}Contract Addresses:${C_RESET}"
+                echo -e "  Token:   ${C_CYAN}$TOKEN_HASH${C_RESET}"
+                echo -e "  AMM:     ${C_CYAN}$AMM_HASH${C_RESET}"
+                echo -e "  Bastion: ${C_CYAN}$BASTION_HASH${C_RESET}"
+                echo ""
+                ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+                ;;
+            "Test Network Connection")
+                echo ""
+                msg_info "Testing connection..."
+                local status=$(check_connection)
+                local block=$(get_block_height)
+                if [[ "$status" == "connected" ]]; then
+                    msg_success "Connected to Casper Testnet"
+                    echo -e "  Block Height: ${C_CYAN}$block${C_RESET}"
+                else
+                    msg_error "Connection failed"
+                fi
+                echo ""
+                ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+                ;;
+            "← Back to Main Menu"|"")
+                break
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Command Line Interface
+# ═══════════════════════════════════════════════════════════════════
+
+show_help() {
+    echo -e "${C_BOLD}BASTION${C_RESET} - ZK-Powered Anti-MEV Dark Pool"
+    echo ""
+    echo "Usage: bastion [command]"
+    echo ""
+    echo "Commands:"
+    echo "  (none)      Launch interactive TUI"
+    echo "  trade       Quick trade interface"
+    echo "  demo        Run MEV simulation demo"
+    echo "  ticker      Start live market ticker"
+    echo "  identity    Manage trading identities"
+    echo "  history     View transaction history"
+    echo "  help        Show this help message"
+    echo ""
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Entry Point
+# ═══════════════════════════════════════════════════════════════════
+
+main() {
+    # Check for gum
+    if ! command -v ~/.local/bin/gum &> /dev/null; then
+        echo "Error: gum not found. Please install from https://github.com/charmbracelet/gum"
+        exit 1
+    fi
+    
+    # Initialize
+    init_bastion
+    
+    # Handle command line arguments
+    case "${1:-}" in
+        trade)
+            quick_trade
+            ;;
+        demo)
+            mev_demo
+            ;;
+        ticker)
+            clear_screen
+            show_banner
+            ticker_menu
+            ;;
+        identity)
+            identity_menu
+            ;;
+        history)
+            ledger_menu
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            main_menu
+            ;;
+    esac
+}
+
+# Run
+main "$@"
