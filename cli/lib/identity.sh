@@ -2,10 +2,16 @@
 # Bastion TUI - Identity Manager
 # Multi-wallet hot-swapping
 
+# Config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-KEYS_DIR="$SCRIPT_DIR/../../keys"
-CURRENT_IDENTITY_FILE="$KEYS_DIR/.current_identity"
+# Use persistent user directory for keys and config which handles multiple sessions
+BASTION_HOME="$HOME/.bastion"
+KEYS_DIR="$BASTION_HOME/keys"
+CURRENT_IDENTITY_FILE="$BASTION_HOME/.current_identity"
+
+# Ensure directories exist
+mkdir -p "$KEYS_DIR"
 
 # ═══════════════════════════════════════════════════════════════════
 # Identity Management
@@ -28,13 +34,23 @@ get_current_identity() {
 
 set_current_identity() {
     local identity="$1"
+    mkdir -p "$(dirname "$CURRENT_IDENTITY_FILE")"
     echo "$identity" > "$CURRENT_IDENTITY_FILE"
 }
 
 get_identity_key_file() {
     local identity="${1:-$(get_current_identity)}"
-    local key_file="${IDENTITIES[$identity]%%:*}"
-    echo "$KEYS_DIR/$key_file"
+    # lookup key filename from map
+    local entry="${IDENTITIES[$identity]}"
+    
+    # partial support for custom keys not in map (if added at runtime)
+    if [[ -z "$entry" ]]; then
+         # Fallback assume identity name is filename base
+         echo "$KEYS_DIR/${identity}.pem"
+    else
+         local key_file="${entry%%:*}"
+         echo "$KEYS_DIR/$key_file"
+    fi
 }
 
 get_identity_description() {
