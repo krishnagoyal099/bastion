@@ -91,14 +91,14 @@ render_ticker() {
 
 render_sparkline() {
     local -a prices=("$@")
-    local chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+    local chars=(" " "▂" "▃" "▄" "▅" "▆" "▇" "█")
     
     # Find min/max
     local min max
     min=$(printf '%s\n' "${prices[@]}" | sort -n | head -1)
     max=$(printf '%s\n' "${prices[@]}" | sort -n | tail -1)
     
-    echo -n "  ${C_DIM}Price 1h:${C_RESET} ${C_CYAN}"
+    echo -ne "  ${C_DIM}Price 1h:${C_RESET} ${C_CYAN}"
     
     for price in "${prices[@]}"; do
         if (( $(echo "$max == $min" | bc -l) )); then
