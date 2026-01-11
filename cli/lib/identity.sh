@@ -253,13 +253,17 @@ identity_menu() {
                     fi
 
                     local key_path="$KEYS_DIR/${name}.pem"
+                    local temp_dir="$KEYS_DIR/${name}_temp_dir"
                     
                     msg_info "Generating key pair..."
-                    casper-client keygen "$KEYS_DIR/${name}_temp" >/dev/null 2>&1
+                    # Check if temp dir exists and remove it safely
+                    if [[ -d "$temp_dir" ]]; then rm -rf "$temp_dir"; fi
                     
-                    if [[ -f "$KEYS_DIR/${name}_temp_secret_key.pem" ]]; then
-                        mv "$KEYS_DIR/${name}_temp_secret_key.pem" "$key_path"
-                        rm -f "$KEYS_DIR/${name}_temp_public_key.pem" "$KEYS_DIR/${name}_temp_public_key_hex"
+                    casper-client keygen "$temp_dir" >/dev/null 2>&1
+                    
+                    if [[ -f "$temp_dir/secret_key.pem" ]]; then
+                        mv "$temp_dir/secret_key.pem" "$key_path"
+                        rm -rf "$temp_dir"
                         
                         # Add to array
                         IDENTITIES["$name"]="${name}.pem:Custom identity"
@@ -271,7 +275,22 @@ identity_menu() {
                         sleep 1
                     else
                          msg_error "Failed to generate key pair."
-                         sleep 1
+                         # check if it created files in the old format (just in case version diff)
+                         if [[ -f "${temp_dir}_secret_key.pem" ]]; then
+                              mv "${temp_dir}_secret_key.pem" "$key_path"
+                              rm -f "${temp_dir}_public_key.pem" "${temp_dir}_public_key_hex"
+                              
+                              # Add to array
+                              IDENTITIES["$name"]="${name}.pem:Custom identity"
+                              
+                              # Persist
+                              echo "$name=${name}.pem:Custom identity" >> "$PERSISTENT_IDENTITIES_FILE"
+                              
+                              msg_success "Created new identity: $name"
+                              sleep 1
+                         else
+                              sleep 1
+                         fi
                     fi
                 fi
                 ;;
