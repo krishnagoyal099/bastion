@@ -72,14 +72,15 @@ render_ticker() {
     # Calculate depths
     local depth_cspr=$(python3 -c "print(round($reserve_cspr * $price, 2))")
     
-    # Render box
+    # Render box with strict padding
+    # Total inner width: 62 chars
     echo -e "${C_WHITE}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    printf "║  ${C_BOLD}CSPR/mUSD${C_RESET}${C_WHITE} │ Price: ${C_CYAN}\$%.6f${C_WHITE} │ ${change_color}%s %.2f%%${C_WHITE}          ║\n" "$price" "$change_arrow" "$change"
+    printf "║  ${C_BOLD}CSPR/mUSD${C_RESET}${C_WHITE} │ Price: ${C_CYAN}\$%-8.6f${C_WHITE} │ ${change_color}%s %-6.2f%%${C_WHITE}           ║\n" "$price" "$change_arrow" "$change"
     echo "╠══════════════════════════════════════════════════════════════╣"
-    printf "║  Pool A: ${C_CYAN}%'d CSPR${C_WHITE}  │ Depth: \$%'d                    ║\n" "$reserve_cspr" "${depth_cspr%.*}"
-    printf "║  Pool B: ${C_CYAN}%'.2f mUSD${C_WHITE}   │ Volume 24h: \$%'d             ║\n" "$reserve_musd" "$volume"
-    printf "║  LP Tokens: ${C_PURPLE}%'d${C_WHITE}      │ Fee: 0.3%%                        ║\n" "$lp_tokens"
+    printf "║  Pool A: ${C_CYAN}%-12s CSPR${C_WHITE} │ Depth: \$%-13s       ║\n" "$(printf "%'d" $reserve_cspr)" "$(printf "%'d" ${depth_cspr%.*})"
+    printf "║  Pool B: ${C_CYAN}%-12s mUSD${C_WHITE} │ Volume 24h: \$%-8s       ║\n" "$(printf "%'.2f" $reserve_musd)" "$(printf "%'d" $volume)"
+    printf "║  LP Tokens: ${C_PURPLE}%-12s${C_WHITE}      │ Fee: 0.3%%                 ║\n" "$(printf "%'d" $lp_tokens)"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${C_RESET}"
 }
