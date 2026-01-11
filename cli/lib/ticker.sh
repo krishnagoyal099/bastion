@@ -114,15 +114,6 @@ render_sparkline() {
 # Live Ticker Loop
 # ═══════════════════════════════════════════════════════════════════
 
-    # Prime the display - Removed excessive vertical gap
-    
-    run_ticker
-}
-
-# ═══════════════════════════════════════════════════════════════════
-# Live Ticker Loop
-# ═══════════════════════════════════════════════════════════════════
-
 run_ticker() {
     hide_cursor
     trap "show_cursor; return" INT TERM
