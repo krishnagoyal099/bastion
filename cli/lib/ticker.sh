@@ -114,6 +114,15 @@ render_sparkline() {
 # Live Ticker Loop
 # ═══════════════════════════════════════════════════════════════════
 
+    # Prime the display - Removed excessive vertical gap
+    
+    run_ticker
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# Live Ticker Loop
+# ═══════════════════════════════════════════════════════════════════
+
 run_ticker() {
     hide_cursor
     trap "show_cursor; return" INT TERM
@@ -125,9 +134,6 @@ run_ticker() {
     
     # Save cursor position at start of widget area
     tput sc
-    
-    # Reserve space for the widget (2 lines) to ensure scroll buffer
-    for i in {1..2}; do echo ""; done
     
     while true; do
         # Restore cursor to top of widget area
@@ -176,15 +182,6 @@ ticker_menu() {
     
     draw_section "Live Market Ticker"
     
-    # Prime the display
-    echo ""
-    echo ""
-    echo ""
-    echo ""
-    echo ""
-    echo ""
-    echo ""
-    echo ""
     
     run_ticker
 }
