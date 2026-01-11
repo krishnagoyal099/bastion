@@ -4,47 +4,68 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Cache for last known good values
+LAST_PRICE_DATA=""
+
 # ═══════════════════════════════════════════════════════════════════
-# Simulated Price Data
+# Real Price Data from Testnet
 # ═══════════════════════════════════════════════════════════════════
 
 get_price_data() {
-    # In production, this would query real AMM reserves
-    # For demo, we'll simulate realistic price movements
+    # Query real pool reserves from testnet AMM contract
+    local reserves
+    reserves=$(get_pool_reserves 2>/dev/null)
     
-    python3 << 'EOF'
-import random
+    # Check if we got real data or an error
+    if [[ "$reserves" == "ERROR:"* || -z "$reserves" ]]; then
+        # Contract unavailable - return error indicator
+        echo '{"error": "Contract unavailable", "simulated": true, "price": 0.025, "change_pct": 0, "reserve_cspr": 0, "reserve_musd": 0, "volume_24h": 0, "lp_tokens": 0, "fee_pct": 0.3}'
+        return 1
+    fi
+    
+    # Parse reserves
+    local reserve_cspr="${reserves%%:*}"
+    local reserve_musd="${reserves##*:}"
+    
+    # Validate we got numbers
+    if ! [[ "$reserve_cspr" =~ ^[0-9]+$ ]] || ! [[ "$reserve_musd" =~ ^[0-9.]+$ ]]; then
+        echo '{"error": "Invalid reserve data", "simulated": true, "price": 0.025, "change_pct": 0, "reserve_cspr": 0, "reserve_musd": 0, "volume_24h": 0, "lp_tokens": 0, "fee_pct": 0.3}'
+        return 1
+    fi
+    
+    # Calculate price and other metrics
+    python3 << PYEOF
 import json
-import time
 
-# Seed with time for reproducible but varying prices
-random.seed(int(time.time()) // 2)  # Changes every 2 seconds
+reserve_cspr = float('$reserve_cspr')
+reserve_musd = float('$reserve_musd')
 
-# Base values
-base_price = 0.025
-base_reserve_cspr = 125000
-base_reserve_musd = 3125
-base_volume = 1200
+# Avoid division by zero
+if reserve_cspr == 0:
+    price = 0.025
+else:
+    price = reserve_musd / reserve_cspr
 
-# Add some randomness
-price = base_price * (1 + random.uniform(-0.02, 0.02))
-reserve_cspr = int(base_reserve_cspr * (1 + random.uniform(-0.05, 0.05)))
-reserve_musd = round(base_reserve_musd * (1 + random.uniform(-0.05, 0.05)), 2)
-volume = int(base_volume * (1 + random.uniform(-0.3, 0.5)))
+# Calculate LP tokens (sqrt of product)
+lp_tokens = int((reserve_cspr * reserve_musd) ** 0.5) if reserve_cspr > 0 and reserve_musd > 0 else 0
 
-# Calculate 24h change
-change_pct = random.uniform(-3, 5)
+# We don't have historical data on testnet, so change is 0
+change_pct = 0.0
+
+# Volume would require event indexing, set to unknown
+volume = 0
 
 print(json.dumps({
     "price": round(price, 6),
     "change_pct": round(change_pct, 2),
-    "reserve_cspr": reserve_cspr,
-    "reserve_musd": reserve_musd,
+    "reserve_cspr": int(reserve_cspr),
+    "reserve_musd": round(reserve_musd, 2),
     "volume_24h": volume,
-    "lp_tokens": int((reserve_cspr * reserve_musd) ** 0.5),
-    "fee_pct": 0.3
+    "lp_tokens": lp_tokens,
+    "fee_pct": 0.3,
+    "live": True
 }))
-EOF
+PYEOF
 }
 
 # ═══════════════════════════════════════════════════════════════════

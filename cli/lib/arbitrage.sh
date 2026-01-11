@@ -128,6 +128,16 @@ arbitrage_menu() {
         clear_screen
         show_banner
         
+        # Prominent SIMULATION banner
+        echo -e "${C_WARN}╔════════════════════════════════════════════════════════════════╗${C_RESET}"
+        echo -e "${C_WARN}║              ⚠️  [SIMULATION] ARBITRAGE SCANNER                ║${C_RESET}"
+        echo -e "${C_WARN}╚════════════════════════════════════════════════════════════════╝${C_RESET}"
+        echo ""
+        echo -e "${C_DIM}This feature uses SIMULATED oracle prices for demonstration.${C_RESET}"
+        echo -e "${C_DIM}Real arbitrage requires: live oracle feeds, deep liquidity,${C_RESET}"
+        echo -e "${C_DIM}and execution faster than block time (~30s on Casper).${C_RESET}"
+        echo ""
+        
         scan_arbitrage
         
         echo ""

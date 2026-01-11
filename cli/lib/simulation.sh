@@ -178,3 +178,41 @@ show_comparison() {
     printf "└──────────────────────┴────────────────────┴────────────────────┘\n"
     echo -e "${C_RESET}"
 }
+
+# ═══════════════════════════════════════════════════════════════════
+# Simulation Menu (Entry Point)
+# ═══════════════════════════════════════════════════════════════════
+
+simulation_menu() {
+    while true; do
+        clear_screen
+        show_banner
+        
+        draw_section "Order Flow Simulation"
+        
+        echo -e "${C_WHITE}Understand how MEV attacks work and how Bastion protects you.${C_RESET}"
+        echo ""
+        
+        local choice
+        choice=$(~/.local/bin/gum choose \
+            "Run MEV Attack Demo" \
+            "View Comparison Table" \
+            "← Back to Main Menu")
+        
+        case "$choice" in
+            "Run MEV Attack Demo")
+                mev_demo
+                ;;
+            "View Comparison Table")
+                clear_screen
+                show_banner
+                show_comparison
+                echo ""
+                ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+                ;;
+            "← Back to Main Menu"|"")
+                break
+                ;;
+        esac
+    done
+}

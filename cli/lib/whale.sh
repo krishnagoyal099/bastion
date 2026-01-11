@@ -130,10 +130,14 @@ whale_menu() {
     clear_screen
     show_banner
     
-    draw_section "🐳 WHALE MODE"
-    
-    echo -e "${C_WHITE}Execute large orders with minimal market impact.${C_RESET}"
+    # Prominent SIMULATION banner
+    echo -e "${C_WARN}╔════════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_WARN}║             ⚠️  [SIMULATION] WHALE MODE - ICEBERG ORDERS       ║${C_RESET}"
+    echo -e "${C_WARN}╚════════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    echo -e "${C_WHITE}Execute large orders with minimal market impact (simulated).${C_RESET}"
     echo -e "${C_DIM}Orders are split into random chunks and executed with delays.${C_RESET}"
+    echo -e "${C_DIM}Real execution requires deployed AMM contracts with liquidity.${C_RESET}"
     echo ""
     
     # Get order parameters

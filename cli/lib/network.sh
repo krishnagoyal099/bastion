@@ -8,6 +8,7 @@
 # ═══════════════════════════════════════════════════════════════════
 CSPR_CLOUD_API_KEY="${CSPR_CLOUD_API_KEY:-019baaf7-e535-7727-8cf9-be312a208df2}"
 CSPR_CLOUD_RPC="${CSPR_CLOUD_RPC:-https://node.testnet.cspr.cloud/rpc}"
+CSPR_CLOUD_REST="${CSPR_CLOUD_REST:-https://api.testnet.cspr.cloud}"
 CHAIN_NAME="${CHAIN_NAME:-casper-test}"
 
 # Contract hashes
@@ -16,16 +17,59 @@ AMM_HASH="hash-f6261e8cd55db234f7a6525b7cedaa53123b510aace8f0cf02bcf0dd25524636"
 BASTION_HASH="hash-9b1ee8aed8931f05cf8efd0eb92f1dab473f1b9c0a9c4c0b8b83ec38db0598c9"
 
 # ═══════════════════════════════════════════════════════════════════
-# RPC Helper
+# RPC Helper (for blockchain state/transactions)
 # ═══════════════════════════════════════════════════════════════════
 rpc_call() {
     local method="$1"
     local params="$2"
+    local timeout="${3:-5}"
     
-    curl -s -X POST "$CSPR_CLOUD_RPC" \
+    curl -s --max-time "$timeout" -X POST "$CSPR_CLOUD_RPC" \
         -H "Content-Type: application/json" \
         -H "Authorization: $CSPR_CLOUD_API_KEY" \
-        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}"
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" 2>/dev/null
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# REST API Helper (for account data, transfers, deploys)
+# ═══════════════════════════════════════════════════════════════════
+rest_api_call() {
+    local endpoint="$1"
+    local timeout="${2:-5}"
+    
+    curl -s --max-time "$timeout" -X GET "${CSPR_CLOUD_REST}${endpoint}" \
+        -H "accept: application/json" \
+        -H "authorization: $CSPR_CLOUD_API_KEY" 2>/dev/null
+}
+
+# Get account info by public key using REST API
+get_account_info() {
+    local public_key="$1"
+    rest_api_call "/accounts/${public_key}"
+}
+
+# Get account balance in CSPR using REST API
+get_account_balance_rest() {
+    local public_key="$1"
+    local result
+    result=$(get_account_info "$public_key")
+    
+    echo "$result" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    balance = int(data.get('data', {}).get('balance', '0'))
+    print(f'{balance / 1e9:.2f}')
+except:
+    print('0.00')
+" 2>/dev/null || echo "0.00"
+}
+
+# Get account transfers using REST API
+get_account_transfers() {
+    local public_key="$1"
+    local limit="${2:-10}"
+    rest_api_call "/accounts/${public_key}/transfers?page_size=${limit}"
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -137,10 +181,54 @@ print(err)
 # ═══════════════════════════════════════════════════════════════════
 # Pool/AMM Functions
 # ═══════════════════════════════════════════════════════════════════
+
+query_contract_key() {
+    local contract_hash="$1"
+    local key_name="$2"
+    
+    local result
+    result=$(rpc_call "query_global_state" "{\"state_identifier\":{\"StateRootHash\":null},\"key\":\"$contract_hash\",\"path\":[\"$key_name\"]}")
+    
+    echo "$result" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    stored = data.get('result', {}).get('stored_value', {})
+    # Handle CLValue
+    if 'CLValue' in stored:
+        val = stored['CLValue'].get('parsed', stored['CLValue'].get('bytes', 'N/A'))
+        print(val)
+    else:
+        print('N/A')
+except Exception as e:
+    print('N/A')
+" 2>/dev/null || echo "N/A"
+}
+
 get_pool_reserves() {
-    # This would query the AMM contract for reserves
-    # For now, return simulated values
-    echo "125000:3125"  # CSPR:mUSD
+    # Query the AMM contract for real reserves
+    local reserve_a reserve_b
+    
+    # Try to get real data from testnet
+    reserve_a=$(query_contract_key "$AMM_HASH" "reserve_a" 2>/dev/null)
+    reserve_b=$(query_contract_key "$AMM_HASH" "reserve_b" 2>/dev/null)
+    
+    # Validate the response
+    if [[ "$reserve_a" == "N/A" || "$reserve_b" == "N/A" || -z "$reserve_a" || -z "$reserve_b" ]]; then
+        # Contract not available or error - return indicator values
+        echo "ERROR:CONTRACT_UNAVAILABLE"
+        return 1
+    fi
+    
+    # Convert from motes if needed (if > 1 billion, assume motes)
+    if [[ "$reserve_a" =~ ^[0-9]+$ ]] && (( reserve_a > 1000000000 )); then
+        reserve_a=$(python3 -c "print(int($reserve_a / 1e9))")
+    fi
+    if [[ "$reserve_b" =~ ^[0-9]+$ ]] && (( reserve_b > 1000000000 )); then
+        reserve_b=$(python3 -c "print(round($reserve_b / 1e9, 2))")
+    fi
+    
+    echo "${reserve_a}:${reserve_b}"
 }
 
 calculate_swap_output() {

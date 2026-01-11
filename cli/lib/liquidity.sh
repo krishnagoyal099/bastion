@@ -11,19 +11,43 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 show_pool_status() {
     draw_section "Current Pool Status"
     
-    # Simulated pool data (would query contract in production)
-    local reserve_a=125000
-    local reserve_b=3125
-    local total_lp=6250
-    local user_lp=0
+    # Query real pool data from testnet
+    local reserves
+    reserves=$(get_pool_reserves 2>/dev/null)
     
-    echo ""
-    printf "  %-20s %b%s%b\n" "Reserve A (CSPR):" "${C_CYAN}" "${reserve_a}" "${C_RESET}"
-    printf "  %-20s %b%s%b\n" "Reserve B (mUSD):" "${C_CYAN}" "${reserve_b}" "${C_RESET}"
-    printf "  %-20s %b%s%b\n" "Total LP Tokens:" "${C_PURPLE}" "${total_lp}" "${C_RESET}"
-    printf "  %-20s %b%s%b\n" "Your LP Tokens:" "${C_PURPLE}" "${user_lp}" "${C_RESET}"
-    printf "  %-20s %b%s%b\n" "Your Pool Share:" "${C_SUCCESS}" "0.00%" "${C_RESET}"
-    echo ""
+    local reserve_a reserve_b total_lp user_lp data_source
+    
+    if [[ "$reserves" == "ERROR:"* || -z "$reserves" ]]; then
+        # Contract unavailable - show warning
+        data_source="offline"
+        reserve_a="N/A"
+        reserve_b="N/A"
+        total_lp="N/A"
+        user_lp="N/A"
+        
+        echo ""
+        echo -e "  ${C_WARN}${ICON_WARN} AMM contract not available on testnet${C_RESET}"
+        echo -e "  ${C_DIM}Ensure contracts are deployed and CSPR.cloud is accessible${C_RESET}"
+        echo ""
+    else
+        # Parse real reserves
+        data_source="live"
+        reserve_a="${reserves%%:*}"
+        reserve_b="${reserves##*:}"
+        
+        # Calculate LP tokens (sqrt of product)
+        total_lp=$(python3 -c "print(int(($reserve_a * $reserve_b) ** 0.5))" 2>/dev/null || echo "0")
+        user_lp="0"  # Would need to query user's LP balance
+        
+        echo ""
+        echo -e "  ${C_SUCCESS}● LIVE DATA${C_RESET}"
+        printf "  %-20s %b%s%b\n" "Reserve A (CSPR):" "${C_CYAN}" "${reserve_a}" "${C_RESET}"
+        printf "  %-20s %b%s%b\n" "Reserve B (mUSD):" "${C_CYAN}" "${reserve_b}" "${C_RESET}"
+        printf "  %-20s %b%s%b\n" "Total LP Tokens:" "${C_PURPLE}" "${total_lp}" "${C_RESET}"
+        printf "  %-20s %b%s%b\n" "Your LP Tokens:" "${C_PURPLE}" "${user_lp}" "${C_RESET}"
+        printf "  %-20s %b%s%b\n" "Your Pool Share:" "${C_SUCCESS}" "0.00%" "${C_RESET}"
+        echo ""
+    fi
 }
 
 # ═══════════════════════════════════════════════════════════════════

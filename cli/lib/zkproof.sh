@@ -126,3 +126,42 @@ zk_demo() {
     
     ~/.local/bin/gum input --placeholder "Press Enter to continue..."
 }
+
+# ═══════════════════════════════════════════════════════════════════
+# ZK Proof Menu (Entry Point)
+# ═══════════════════════════════════════════════════════════════════
+
+zkproof_menu() {
+    while true; do
+        clear_screen
+        show_banner
+        
+        draw_section "ZK-SNARK Proof Engine"
+        
+        echo -e "${C_WHITE}Generate zero-knowledge proofs to hide your order details.${C_RESET}"
+        echo -e "${C_DIM}Proofs verify your order is valid without revealing amount, side, or price.${C_RESET}"
+        echo ""
+        
+        local choice
+        choice=$(~/.local/bin/gum choose \
+            "Generate New Proof" \
+            "How ZK Proofs Work" \
+            "← Back to Main Menu")
+        
+        case "$choice" in
+            "Generate New Proof")
+                zk_demo
+                ;;
+            "How ZK Proofs Work")
+                clear_screen
+                show_banner
+                show_zk_explainer
+                echo ""
+                ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+                ;;
+            "← Back to Main Menu"|"")
+                break
+                ;;
+        esac
+    done
+}

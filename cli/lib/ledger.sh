@@ -17,6 +17,102 @@ init_ledger() {
 }
 
 # ═══════════════════════════════════════════════════════════════════
+# Fetch On-Chain Transactions from Testnet
+# ═══════════════════════════════════════════════════════════════════
+
+fetch_onchain_transactions() {
+    local limit="${1:-10}"
+    
+    # Get current identity's public key
+    local public_key=""
+    if [[ -n "$SUPER_PUBLIC_KEY" ]]; then
+        public_key="$SUPER_PUBLIC_KEY"
+    fi
+    
+    if [[ -z "$public_key" ]]; then
+        echo "[]"
+        return 1
+    fi
+    
+    # Fetch from REST API
+    local result
+    result=$(get_account_transfers "$public_key" "$limit" 2>/dev/null)
+    
+    if [[ -z "$result" ]]; then
+        echo "[]"
+        return 1
+    fi
+    
+    # Parse and format the transactions
+    echo "$result" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    transfers = data.get('data', [])
+    
+    formatted = []
+    for t in transfers:
+        tx = {
+            'hash': t.get('deploy_hash', 'N/A'),
+            'type': 'transfer',
+            'amount': str(int(t.get('amount', 0)) / 1e9) + ' CSPR',
+            'timestamp': t.get('timestamp', ''),
+            'status': 'success',
+            'from': t.get('initiator_account_hash', '')[:16] + '...' if t.get('initiator_account_hash') else 'N/A',
+            'to': t.get('to_account_hash', '')[:16] + '...' if t.get('to_account_hash') else 'N/A',
+            'onchain': True
+        }
+        formatted.append(tx)
+    
+    print(json.dumps(formatted))
+except Exception as e:
+    print('[]')
+" 2>/dev/null || echo "[]"
+}
+
+list_onchain_transactions() {
+    local limit="${1:-10}"
+    
+    echo -e "${C_BOLD}${C_CYAN}📡 On-Chain Transfers (Live from Testnet)${C_RESET}"
+    echo ""
+    
+    local txs
+    txs=$(fetch_onchain_transactions "$limit")
+    
+    if [[ "$txs" == "[]" || -z "$txs" ]]; then
+        echo -e "${C_DIM}  No on-chain transactions found or unable to fetch.${C_RESET}"
+        return 1
+    fi
+    
+    echo "$txs" | python3 -c "
+import sys, json
+from datetime import datetime
+
+data = json.load(sys.stdin)
+
+if not data:
+    print('  No transactions found.')
+else:
+    print(f\"  {'Status':<8} {'Type':<10} {'Amount':<18} {'Hash':<22} {'Time':<16}\")
+    print('  ' + '─' * 80)
+    
+    for tx in data[:10]:
+        status = '✓'
+        type_str = '📤 ' + tx.get('type', 'unknown')
+        amount = tx.get('amount', '0')
+        hash_short = tx.get('hash', '')[:18] + '...'
+        
+        try:
+            ts = datetime.fromisoformat(tx.get('timestamp', '').replace('Z', '+00:00'))
+            time_str = ts.strftime('%m/%d %H:%M')
+        except:
+            time_str = tx.get('timestamp', '')[:16]
+        
+        print(f\"  {status:<8} {type_str:<10} {amount:<18} {hash_short:<22} {time_str:<16}\")
+" 2>/dev/null
+}
+
+# ═══════════════════════════════════════════════════════════════════
 # Add Transaction
 # ═══════════════════════════════════════════════════════════════════
 
@@ -234,20 +330,33 @@ ledger_menu() {
         show_banner
         draw_section "Transaction Ledger"
         
-        echo -e "${C_DIM}Recent Transactions:${C_RESET}"
+        # Show on-chain transactions first (real data)
+        list_onchain_transactions 5
         echo ""
-        list_transactions "" 10
+        
+        echo -e "${C_BOLD}${C_WHITE}📋 Local Transaction History${C_RESET}"
+        echo ""
+        list_transactions "" 5
         echo ""
         
         local choice
         choice=$(~/.local/bin/gum choose \
-            "Browse All History" \
+            "View On-Chain Transfers" \
+            "Browse Local History" \
             "Filter by Type" \
             "Export to CSV" \
             "← Back to Main Menu")
         
         case "$choice" in
-            "Browse All History")
+            "View On-Chain Transfers")
+                clear_screen
+                show_banner
+                draw_section "On-Chain Transfers"
+                list_onchain_transactions 20
+                echo ""
+                ~/.local/bin/gum input --placeholder "Press Enter to continue..."
+                ;;
+            "Browse Local History")
                 history_browser
                 ;;
             "Filter by Type")

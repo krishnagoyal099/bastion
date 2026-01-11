@@ -46,10 +46,11 @@ main_menu() {
             current=$(get_current_identity 2>/dev/null || echo "user")
         fi
         
-        local height="14205" 
+        local height="N/A" 
         if command -v get_block_height &> /dev/null; then
-             # Timeout to prevent hanging if network down, use fake height on fail
-             height=$(timeout 1s get_block_height 2>/dev/null || echo "14205")
+             # Call directly - RPC has its own timeout now
+             height=$(get_block_height 2>/dev/null)
+             [[ -z "$height" || "$height" == "" ]] && height="N/A"
         fi
         
         # Determine network status
