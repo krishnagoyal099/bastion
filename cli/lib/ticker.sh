@@ -117,14 +117,23 @@ render_sparkline() {
 
 run_ticker() {
     hide_cursor
-    trap "show_cursor; exit" INT TERM
+    trap "show_cursor; return" INT TERM
     
     local price_history=()
     
-    echo -e "${C_DIM}Press Ctrl+C to exit ticker${C_RESET}"
+    echo -e "${C_DIM}Press Ctrl+C to return to menu${C_RESET}"
     echo ""
     
+    # Reserve space for the widget (9 lines)
+    for i in {1..9}; do echo ""; done
+    
+    # Save cursor position at start of widget area
+    tput sc
+    
     while true; do
+        # Restore cursor to top of widget area
+        tput rc
+        
         # Get current data
         local data
         data=$(get_price_data)
@@ -139,15 +148,15 @@ run_ticker() {
             price_history=("${price_history[@]:1}")
         fi
         
-        # Move cursor up and clear (no flicker)
-        printf '\033[8A\033[J'
-        
-        # Render
+        # Render Frame
         render_ticker "$data"
+        echo ""
         
-        # Show sparkline if we have enough data
+        # Render Sparkline
         if (( ${#price_history[@]} >= 5 )); then
             render_sparkline "${price_history[@]}"
+        else
+            echo "" 
         fi
         
         echo ""
