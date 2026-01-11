@@ -18,11 +18,23 @@ mkdir -p "$KEYS_DIR"
 # ═══════════════════════════════════════════════════════════════════
 
 # Available identities
+# Available identities (defaults)
 declare -A IDENTITIES=(
     ["user"]="user.pem:Primary trading account"
     ["whale"]="whale.pem:Large position account"
     ["attacker"]="attacker.pem:MEV simulation account"
 )
+
+PERSISTENT_IDENTITIES_FILE="$BASTION_HOME/.identities"
+
+# Load persistent identities
+if [[ -f "$PERSISTENT_IDENTITIES_FILE" ]]; then
+    while IFS="=" read -r key value; do
+        if [[ -n "$key" ]]; then
+            IDENTITIES["$key"]="$value"
+        fi
+    done < "$PERSISTENT_IDENTITIES_FILE"
+fi
 
 get_current_identity() {
     if [[ -f "$CURRENT_IDENTITY_FILE" ]]; then
@@ -40,13 +52,20 @@ set_current_identity() {
 
 get_identity_key_file() {
     local identity="${1:-$(get_current_identity)}"
+    
     # lookup key filename from map
     local entry="${IDENTITIES[$identity]}"
     
-    # partial support for custom keys not in map (if added at runtime)
+    # If not found in map, check if file exists in KEYS_DIR
     if [[ -z "$entry" ]]; then
-         # Fallback assume identity name is filename base
-         echo "$KEYS_DIR/${identity}.pem"
+         if [[ -f "$KEYS_DIR/${identity}.pem" ]]; then
+             echo "$KEYS_DIR/${identity}.pem"
+         elif [[ -f "$KEYS_DIR/${identity}_secret_key.pem" ]]; then
+             echo "$KEYS_DIR/${identity}_secret_key.pem"
+         else
+             # Fallback
+             echo "$KEYS_DIR/${identity}.pem"
+         fi
     else
          local key_file="${entry%%:*}"
          echo "$KEYS_DIR/$key_file"
@@ -55,7 +74,12 @@ get_identity_key_file() {
 
 get_identity_description() {
     local identity="$1"
-    echo "${IDENTITIES[$identity]#*:}"
+    local desc="${IDENTITIES[$identity]#*:}"
+    if [[ -z "$desc" || "$desc" == "$identity" ]]; then
+        echo "Custom identity"
+    else
+        echo "$desc"
+    fi
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -219,13 +243,34 @@ identity_menu() {
                 local name
                 name=$(~/.local/bin/gum input --placeholder "Enter identity name (e.g., trader1)")
                 if [[ -n "$name" ]]; then
+                    # Ensure unique
+                    if [[ -n "${IDENTITIES[$name]}" ]]; then
+                        msg_error "Identity '$name' already exists!"
+                        sleep 1
+                        continue
+                    fi
+
                     local key_path="$KEYS_DIR/${name}.pem"
-                    casper-client keygen "$KEYS_DIR/${name}_temp" 2>/dev/null
-                    mv "$KEYS_DIR/${name}_temp_secret_key.pem" "$key_path" 2>/dev/null
-                    rm -f "$KEYS_DIR/${name}_temp"* 2>/dev/null
-                    IDENTITIES["$name"]="${name}.pem:Custom identity"
-                    msg_success "Created new identity: $name"
-                    sleep 1
+                    
+                    msg_info "Generating key pair..."
+                    casper-client keygen "$KEYS_DIR/${name}_temp" >/dev/null 2>&1
+                    
+                    if [[ -f "$KEYS_DIR/${name}_temp_secret_key.pem" ]]; then
+                        mv "$KEYS_DIR/${name}_temp_secret_key.pem" "$key_path"
+                        rm -f "$KEYS_DIR/${name}_temp_public_key.pem" "$KEYS_DIR/${name}_temp_public_key_hex"
+                        
+                        # Add to array
+                        IDENTITIES["$name"]="${name}.pem:Custom identity"
+                        
+                        # Persist
+                        echo "$name=${name}.pem:Custom identity" >> "$PERSISTENT_IDENTITIES_FILE"
+                        
+                        msg_success "Created new identity: $name"
+                        sleep 1
+                    else
+                         msg_error "Failed to generate key pair."
+                         sleep 1
+                    fi
                 fi
                 ;;
             "← Back to Main Menu"|"")
