@@ -130,7 +130,7 @@ function App() {
             <section className="feature-section relative min-h-screen flex items-center px-8 py-24 border-t border-swiss-white/10">
                 <div className="content-block w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
                     <div className="order-2 md:order-1">
-                        <img src="/DrkPl.png" alt="Dark Pool Trading Demo" className="w-full aspect-video object-cover rounded-lg border border-swiss-white/10" />
+                        <img src="/DrkPl.png" alt="Dark Pool Trading Demo" className="w-full h-auto object-contain rounded-lg border border-swiss-white/10" />
                     </div>
                     <div className="order-1 md:order-2 md:pl-16">
                          <span className="text-swiss-accent text-xs font-bold tracking-widest mb-4 block">01. DARK LIQUIDITY</span>
@@ -157,7 +157,7 @@ function App() {
                          </p>
                     </div>
                     <div>
-                        <img src="/Trst.png" alt="ZK Proof Demo" className="w-full aspect-video object-cover rounded-lg border border-swiss-white/10" />
+                        <img src="/Trst.png" alt="ZK Proof Demo" className="w-full h-auto object-contain rounded-lg border border-swiss-white/10" />
                     </div>
                 </div>
             </section>
