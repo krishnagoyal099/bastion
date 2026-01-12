@@ -1,152 +1,135 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
-const RookMaterial = new THREE.MeshPhysicalMaterial({
-  color: 0xeeeeee, 
-  metalness: 1.0,
-  roughness: 0.2, // Slightly rougher for realism
-  clearcoat: 1.0,
-  clearcoatRoughness: 0.1,
-  reflectivity: 1.0,
+// Chrome Matte with slight shine - as requested
+const ChromeMatteMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xd0d0d0,          // Light silver/chrome
+  metalness: 0.95,
+  roughness: 0.35,          // Matte but not fully
+  clearcoat: 0.4,           // Slight shine
+  clearcoatRoughness: 0.3,
+  reflectivity: 0.8,
+  envMapIntensity: 1.2,
 });
 
-export function ProceduralRook(props) {
-  // Stanton Style Refined: Solid Ring Base + Raised Teeth.
+// Polished Chrome for accent rings
+const ChromeShinyMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xe8e8e8,
+  metalness: 1.0,
+  roughness: 0.05,          // Very shiny
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.02,
+  reflectivity: 1.0,
+  envMapIntensity: 1.5,
+});
+
+// Create a curved slab geometry (arc with thickness)
+function createCurvedSlabGeometry(innerRadius, outerRadius, height, startAngle, arcLength, segments = 16) {
+  const shape = new THREE.Shape();
   
-  const crownTeeth = useMemo(() => {
-    // 4 Distinct blocks
-    const segments = [];
-    const count = 4;
-    const gap = 0.4; // Gap between teeth
-    const sector = (Math.PI * 2) / count;
+  // Draw the arc cross-section (a ring segment in 2D)
+  // Outer arc
+  shape.absarc(0, 0, outerRadius, startAngle, startAngle + arcLength, false);
+  // Line to inner arc
+  shape.absarc(0, 0, innerRadius, startAngle + arcLength, startAngle, true);
+  shape.closePath();
+  
+  // Extrude it to give height
+  const extrudeSettings = {
+    depth: height,
+    bevelEnabled: false,
+  };
+  
+  return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+}
+
+export function ProceduralRook(props) {
+  // Create 6 curved slab battlements
+  const battlementGeometries = useMemo(() => {
+    const count = 6;
+    const arcLength = 0.7;    // Arc span of each battlement (radians)
+    const gap = (Math.PI * 2 / count) - arcLength;
     
-    for(let i=0; i<count; i++) {
-        const start = i * sector + gap/2;
-        const length = sector - gap;
-        segments.push({ start, length });
+    const innerRadius = 1.05;  // Inner edge of the slab
+    const outerRadius = 1.30;  // Outer edge (thickness = 0.25)
+    const height = 0.65;       // How tall the battlement is
+    
+    const geometries = [];
+    for (let i = 0; i < count; i++) {
+      const startAngle = i * (Math.PI * 2 / count) + gap / 2;
+      const geo = createCurvedSlabGeometry(innerRadius, outerRadius, height, startAngle, arcLength);
+      geometries.push(geo);
     }
-    return segments;
+    return geometries;
   }, []);
 
   return (
-    <group {...props} scale={0.55}>
-      {/* --- BASE --- */}
-      <mesh position={[0, -2, 0]} material={RookMaterial}>
-        <cylinderGeometry args={[1.6, 1.8, 0.4, 128]} />
-      </mesh>
-      <mesh position={[0, -1.6, 0]} material={RookMaterial}>
-        <cylinderGeometry args={[1.3, 1.6, 0.4, 128]} />
+    <group {...props}>
+      
+      {/* ========== BASE ========== */}
+      {/* Bottom chrome ring (shiny accent) */}
+      <mesh position={[0, -2.3, 0]} material={ChromeShinyMaterial}>
+        <cylinderGeometry args={[1.7, 1.8, 0.2, 64]} />
       </mesh>
       
-      {/* --- BODY --- */}
-      {/* Tapered Concave Body */}
-      <mesh position={[0, 0, 0]} material={RookMaterial}>
-         {/* Top Radius 1.0, Bottom 1.3 */}
-        <cylinderGeometry args={[1.0, 1.3, 3.2, 128]} />
-      </mesh>
-
-      {/* --- COLLAR --- */}
-      <mesh position={[0, 1.7, 0]} material={RookMaterial}>
-        <cylinderGeometry args={[1.4, 1.1, 0.2, 128]} />
+      {/* Base platform */}
+      <mesh position={[0, -2.0, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[1.55, 1.7, 0.4, 64]} />
       </mesh>
       
-      {/* --- HEAD (Turret) --- */}
-      {/* The main solid block of the head */}
-      <mesh position={[0, 2.1, 0]} material={RookMaterial}>
-        <cylinderGeometry args={[1.4, 1.4, 0.6, 128]} />
+      {/* Base step */}
+      <mesh position={[0, -1.65, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[1.35, 1.55, 0.3, 64]} />
       </mesh>
       
-      {/* --- THE CROWN --- */}
-      {/* 1. The Floor (Recessed) */}
-      <mesh position={[0, 2.41, 0]} material={RookMaterial}>
-         <cylinderGeometry args={[1.2, 1.2, 0.05, 64]} />
+      {/* ========== BODY ========== */}
+      {/* Main tapered column - concave profile */}
+      <mesh position={[0, -0.3, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[0.95, 1.3, 2.4, 64]} />
       </mesh>
       
-      {/* 2. The Teeth (Rising from the rim) */}
-      {crownTeeth.map((seg, i) => (
-         <mesh 
-            key={i} 
-            // Positioned ON TOP of the Head (2.1 + 0.3 = 2.4). 
-            // Tooth height 0.4 -> center at 2.4 + 0.2 = 2.6
-            position={[0, 2.6, 0]} 
-            material={RookMaterial}
-         >
-            {/* Inner Radius 1.0 (Hole), Outer 1.4. This creates the thick wall */}
-            <cylinderGeometry 
-                args={[1.4, 1.4, 0.45, 64, 1, false, seg.start, seg.length]} 
-            />
-         </mesh>
-      ))}
-
-      {/* Inner Wall helper (to close the gap if cylinderGeometry is single sided?) 
-          Three.js cylinder sectors are closed by default? No, 'openEnded' is false. 
-          But the "side" faces created by sector cuts are radial planes.
-          The "inner" face (radiusTop) needs to come from a separate geometry if we want a ring?
-          No, CylinderGeometry with openEnded=false creates caps. 
-          But for a RING, we need a tube.
-          Let's use a RingGeometry extruded via shape? No, simpler:
-          We just render the teeth as solid sectors. 
-          But we need the "Hole" to be empty in the middle.
-          Standard CylinderGeometry makes a pie slice, not a ring segment.
-          
-          Ah! Three.js CylinderGeometry creates a solid *slice*. 
-          It fills the center to 0,0.
-          We need a TUBE segment.
-          Solution: Use a `RingGeometry` extruded? Or simpler: Use a subtractive CSG? No, too heavy.
-          Visual Hack: Render an "Inner Core" cylinder that is BLACK to simulate depth? 
-          Or use `useMemo` with `ExtrudeGeometry` of a predefined Shape (Arc).
-          
-          Let's try the ExtrudeGeometry approach for the teeth to be perfect.
-      */}
-      <CrownTeeth segments={crownTeeth} />
+      {/* ========== COLLAR ========== */}
+      {/* Chrome ring at collar (shiny accent) */}
+      <mesh position={[0, 1.0, 0]} material={ChromeShinyMaterial}>
+        <cylinderGeometry args={[1.1, 0.98, 0.15, 64]} />
+      </mesh>
       
-    </group>
-  );
-}
-
-// Sub-component for custom extruded arc teeth (Real Pie Sectors)
-function CrownTeeth({ segments }) {
-  const geometry = useMemo(() => {
-    // Create a shape for the pie sector (Wedges)
-    // Outer Radius 1.4 (Matches head). 
-    // Inner Radius ~0 (Touches center).
-    const shapes = [];
-    
-    segments.forEach((seg) => {
-       const shape = new THREE.Shape();
-       const rOuter = 1.4;
-       
-       // Draw Pie Slice
-       shape.moveTo(0, 0); // Start at center
-       shape.absarc(0, 0, rOuter, seg.start, seg.start + seg.length, false); // Draw Outer Arc
-       shape.lineTo(0, 0); // Return to center
-       
-       shapes.push(shape);
-    });
-    
-    return shapes;
-  }, [segments]);
-
-  return (
-    <group position={[0, 2.4, 0]} rotation={[Math.PI/2, 0, 0]}> 
-       {/* 2.4 Base. Extrude Z (which is Y in world) */}
-       {geometry.map((shape, i) => (
-         <mesh key={i} material={RookMaterial} rotation={[0, 0, 0]}>
-            <extrudeGeometry 
-              args={[
-                shape, 
-                { 
-                  depth: 0.50, // Height of the teeth
-                  bevelEnabled: true, 
-                  bevelThickness: 0.03, 
-                  bevelSize: 0.03, 
-                  bevelSegments: 4, 
-                  curveSegments: 64 
-                }
-              ]} 
-            />
-         </mesh>
-       ))}
+      {/* Collar transition */}
+      <mesh position={[0, 1.2, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[1.2, 1.1, 0.25, 64]} />
+      </mesh>
+      
+      {/* ========== HEAD (Turret) ========== */}
+      {/* Main turret cylinder */}
+      <mesh position={[0, 1.65, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[1.25, 1.2, 0.65, 64]} />
+      </mesh>
+      
+      {/* ========== CROWN ========== */}
+      {/* Crown base ring (shiny accent) */}
+      <mesh position={[0, 2.05, 0]} material={ChromeShinyMaterial}>
+        <cylinderGeometry args={[1.32, 1.25, 0.12, 64]} />
+      </mesh>
+      
+      {/* Crown inner floor (recessed center) */}
+      <mesh position={[0, 2.15, 0]} material={ChromeMatteMaterial}>
+        <cylinderGeometry args={[0.85, 0.85, 0.08, 32]} />
+      </mesh>
+      
+      {/* ========== BATTLEMENTS - THICK CURVED SLABS ========== */}
+      
+      {/* Battlements positioning container */}
+      <group position={[0, 2.12, 0]}>
+        {battlementGeometries.map((geo, i) => (
+          <mesh 
+            key={`bat-${i}`} 
+            geometry={geo}
+            rotation={[-Math.PI / 2, 0, 0]}
+            material={ChromeMatteMaterial}
+          />
+        ))}
+      </group>
+      
     </group>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useRef, useLayoutEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, ContactShadows } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Environment } from '@react-three/drei';
 import { ProceduralRook } from './ProceduralRook';
 import { ChessBoard } from './ChessBoard';
 import gsap from 'gsap';
@@ -8,23 +8,109 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
-// --- CONFIGURATION CONTROLS ---
-const BOARD_FINAL_Y = -2.5;  // Decrease to move DOWN, Increase to move UP
-const BOARD_SLANT_X = 0.1;  // -0.1 is flat, -0.5 is steep tilt away
-// ------------------------------
+// ============================================================
+//   CONFIGURATION - Edit these values to customize the scene
+// ============================================================
+
+const CONFIG = {
+  
+  // --- CAMERA ---
+  camera: {
+    position: [0, 0, 5],      // Centered, closer for intimate view
+    fov: 45,                  // Wider for dramatic perspective
+  },
+
+  // --- ROOK ---
+  rook: {
+    scale: 0.25,              // Visible but not overwhelming
+    
+    // Starting position - Visible in frame immediately
+    startPosition: {
+      x: 1.2,                 // Right side
+      y: 2.8,                 // LOWER - visible in frame immediately
+      z: 0.3,                 // Slightly forward
+    },
+    
+    // Starting rotation - HEAVILY TILTED sideways
+    startRotation: {
+      x: -0.5,                // Tilted back
+      y: 0,                   // Facing forward
+      z: 1.2,                 // HEAVILY leaning sideways
+    },
+    
+    // Final resting position
+    finalYOffset: 0.65,        // Sitting on board
+  },
+
+  // --- CHESSBOARD ---
+  board: {
+    size: 8,                  // Compact elegant board
+    tiles: 8,
+    tileHeight: 0.03,
+    
+    rotation: {
+      x: 0.0001,                // Slight tilt toward viewer
+      y: 0,
+      z: 0,
+    },
+    
+    yOffset: -2,            // At bottom of viewport
+    startYOffset: -2,         // Hidden below initially
+  },
+
+  // --- ANIMATION PHASES ---
+  // Total timeline = 44 units (phases add up to full scroll)
+  
+  animation: {
+    scrubSpeed: 1.5,          // Higher = smoother, no snapping
+  },
+
+  // --- LIGHTING ---
+  lighting: {
+    ambient: 0.3,
+    keyLight: { position: [3, 8, 5], intensity: 2.5 },
+    rimLight: { position: [-4, 4, -4], intensity: 1.2 },
+    fillLight: { position: [0, 0, 6], intensity: 0.6 },
+  },
+
+  environment: "city",
+};
+
+// ============================================================
+//   CINEMATIC ANIMATION EXPERIENCE
+// ============================================================
 
 function Experience() {
   const rookRef = useRef();
   const boardRef = useRef();
+  const { viewport } = useThree();
   
   useLayoutEffect(() => {
-    if (!rookRef.current) return;
+    if (!rookRef.current || !boardRef.current) return;
     const rook = rookRef.current;
+    const board = boardRef.current;
+
+    // Calculate final positions
+    const fovRad = (CONFIG.camera.fov * Math.PI) / 180;
+    const cameraZ = CONFIG.camera.position[2];
+    const visibleHeight = 2 * cameraZ * Math.tan(fovRad / 2);
+    const visibleBottom = -visibleHeight / 2;
     
-    // Initial hidden state for board
-    if(boardRef.current) {
-      gsap.set(boardRef.current.position, { y: -20 }); // Hide
-    }
+    const boardFinalY = visibleBottom + CONFIG.board.yOffset + 2.5;
+    const rookFinalY = boardFinalY + CONFIG.rook.finalYOffset;
+    
+    // === INITIAL STATES ===
+    // Rook: Top of screen, slanted, ready to fall
+    gsap.set(rook.position, CONFIG.rook.startPosition);
+    gsap.set(rook.rotation, CONFIG.rook.startRotation);
+    
+    // Board: Hidden below
+    gsap.set(board.position, { 
+      x: 0,
+      y: boardFinalY + CONFIG.board.startYOffset, 
+      z: 0 
+    });
+    gsap.set(board.scale, { x: 0.8, y: 0.8, z: 0.8 }); // Start slightly smaller
 
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({
@@ -32,106 +118,170 @@ function Experience() {
           trigger: "#root",
           start: "top top",
           end: "bottom bottom",
-          scrub: 1.2,
+          scrub: CONFIG.animation.scrubSpeed,
         }
       });
 
-      // --- 1. DROP ---
-      tl.fromTo(rook.position, 
-        { y: 7, x: -1, z: 0 }, 
-        { y: 1, x: 2, z: 2, ease: "power1.inOut", duration: 3 }
-      );
-      tl.fromTo(rook.rotation,
-        { x: 0.5, y: 0, z: 0.2 },
-        { x: 2, y: 2, z: 1, ease: "none", duration: 3 },
-        "<"
-      );
-
-      // --- 2. TUMBLE (Alignment) ---
-      tl.to(rook.position, {
-        y: -1.0, 
-        x: -2,
-        z: 1,
-        ease: "power1.inOut",
-        duration: 4
-      });
-      tl.to(rook.rotation, {
-        x: 5.0, 
-        y: 5.5,
-        z: 0.5, 
-        ease: "none",
-        duration: 4
-      }, "<");
-
-      // --- 3. LANDING (Precision) ---
-      // User request: "Rook a bit more up, Board a bit more down".
-      // Board must sit "around the rook's foot" (Contact).
-      // Rook Center Y = -0.6. Scale 0.55 -> Extent ~1.1. Bottom ~ -1.7.
-      // Board Surface Y = -1.7. Center Y = -1.725 (Thickness 0.05).
+      // ========================================================
+      // 🎬 S-CURVE PATH (matching your drawing)
+      // Right → Left curve → Right curve → Center bottom
+      // ========================================================
       
+      // --- Start: Top right, curving LEFT (0 → 12) ---
       tl.to(rook.position, {
-        y: -0.6, // Higher Center
-        x: 0,
-        z: 3.5, 
-        ease: "elastic.out(0.6, 0.4)",
-        duration: 3
-      });
-      
-      tl.to(rook.rotation, {
-        x: 6.28 + 0.1, 
-        y: 6.28 + 0.2, 
+        y: 1.8,               // About 30% down
+        x: -0.8,              // LEFT side (peak of first curve)
         z: 0,
-        ease: "power2.out",
-        duration: 3
-      }, "<");
+        duration: 12,
+        ease: "sine.inOut",   // Smooth curve
+      }, 0);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 0.5,
+        x: -0.2,
+        z: 0.7,               // Still tilted
+        duration: 12,
+        ease: "sine.inOut",
+      }, 0);
 
-      // Board Arrival
-      if(boardRef.current) {
-        tl.to(boardRef.current.position, {
-          y: BOARD_FINAL_Y,
-          duration: 2,
-          ease: "power2.out"
-        }, "-=2");
-      }
+      // --- Middle: LEFT → curving back RIGHT (12 → 28) ---
+      tl.to(rook.position, {
+        y: 0.4,               // About 70% down
+        x: 0.9,               // RIGHT side (peak of second curve)
+        z: 0,
+        duration: 16,
+        ease: "sine.inOut",   // Smooth S-curve
+      }, 12);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.2,
+        x: 0.1,
+        z: -0.4,              // Tilted other way
+        duration: 16,
+        ease: "sine.inOut",
+      }, 12);
+
+      // --- End: RIGHT → CENTER bottom (28 → 42) ---
+      tl.to(rook.position, {
+        y: rookFinalY + 0.25,
+        x: 0,                 // CENTER
+        z: 0,
+        duration: 14,
+        ease: "sine.inOut",
+      }, 28);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.9,
+        x: 0,
+        z: 0,                 // UPRIGHT
+        duration: 14,
+        ease: "sine.out",     // Settling
+      }, 28);
+
+      // --- BOARD EMERGES (30 → 38) ---
+      tl.to(board.position, {
+        y: boardFinalY,
+        duration: 8,
+        ease: "power2.out",
+      }, 30);
+      
+      tl.to(board.scale, {
+        x: 1, y: 1, z: 1,
+        duration: 8,
+        ease: "power2.out",
+      }, 30);
+
+      // --- LANDING (36 → 44) ---
+      tl.to(rook.position, {
+        y: rookFinalY,
+        duration: 8,
+        ease: "power3.out",
+      }, 36);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 2,
+        duration: 8,
+        ease: "power2.out",
+      }, 36);
 
     });
-    return () => ctx.revert();
-  }, []);
 
-  // Idle hover
-  useFrame((state) => {
-     // passive animation
-  });
+    return () => ctx.revert();
+  }, [viewport]);
 
   return (
     <>
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={2.0} color="#fff" />
-      <spotLight position={[0, 10, 0]} intensity={3} penumbra={1} />
+      {/* === CINEMATIC LIGHTING === */}
+      <ambientLight intensity={CONFIG.lighting.ambient} />
       
-      <Environment preset="studio" />
+      {/* Key Light - dramatic top-right */}
+      <directionalLight 
+        position={CONFIG.lighting.keyLight.position} 
+        intensity={CONFIG.lighting.keyLight.intensity} 
+        color="#ffffff"
+        castShadow
+      />
       
+      {/* Rim Light - silhouette definition */}
+      <pointLight 
+        position={CONFIG.lighting.rimLight.position} 
+        intensity={CONFIG.lighting.rimLight.intensity} 
+        color="#e8e8e8"
+      />
+      
+      {/* Fill Light - front subtle */}
+      <pointLight 
+        position={CONFIG.lighting.fillLight.position} 
+        intensity={CONFIG.lighting.fillLight.intensity} 
+        color="#d0d0d0"
+      />
+      
+      <Environment preset={CONFIG.environment} />
+      
+      {/* === THE ROOK === */}
       <group ref={rookRef}>
-        <ProceduralRook />
+        <ProceduralRook scale={CONFIG.rook.scale} />
       </group>
       
-      {/* Chess Board - Controls applied here */}
-      <group position={[0, -10, 0]} rotation={[BOARD_SLANT_X, 0, 0]} ref={boardRef}>
-         <ChessBoard size={30} tiles={8} tileHeight={0.05} />
+      {/* === THE BOARD === */}
+      <group 
+        ref={boardRef} 
+        rotation={[
+          CONFIG.board.rotation.x, 
+          CONFIG.board.rotation.y, 
+          CONFIG.board.rotation.z
+        ]}
+      >
+        <ChessBoard 
+          size={CONFIG.board.size} 
+          tiles={CONFIG.board.tiles} 
+          tileHeight={CONFIG.board.tileHeight} 
+        />
       </group>
-      
-      <ContactShadows position={[0, -2.5, 0]} opacity={0.6} scale={10} blur={2} far={4} color="#000" />
     </>
   );
 }
+
+// ============================================================
+//   CANVAS WRAPPER
+// ============================================================
 
 export default function RookScene() {
   return (
     <div className="canvas-container">
       <Canvas 
         shadows
-        gl={{ antialias: true, toneMappingExposure: 1.0 }}
-        camera={{ position: [0, 0, 10], fov: 40 }}
+        gl={{ 
+          antialias: true, 
+          toneMappingExposure: 1.4,
+          toneMapping: 3  // ACES Filmic for cinema
+        }}
+        camera={{ 
+          position: CONFIG.camera.position, 
+          fov: CONFIG.camera.fov,
+          near: 0.1,
+          far: 100
+        }}
       >
         <Experience />
       </Canvas>
