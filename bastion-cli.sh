@@ -53,9 +53,15 @@ main_menu() {
              [[ -z "$height" || "$height" == "" ]] && height="N/A"
         fi
         
-        # Determine network status
-        local status="connected"
-        if [[ "$height" == "N/A" ]]; then status="disconnected"; fi
+        # Determine network status using connection check (not just block height)
+        local status="disconnected"
+        if command -v check_connection &> /dev/null; then
+            status=$(check_connection 2>/dev/null)
+        fi
+        # If we got a valid height, we're definitely connected
+        if [[ "$height" != "N/A" && -n "$height" ]]; then
+            status="connected"
+        fi
         
         show_status_bar "${CHAIN_NAME:-casper-test}" "$status" "$height" "$current"
         

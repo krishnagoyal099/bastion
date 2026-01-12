@@ -4,11 +4,13 @@ target/
 
 # Environment files  
 .env
+*.env
 *.pem
 secret_key.pem
 
 # Keys directory
 keys/
+cli/config/
 
 # IDE
 .idea/
@@ -31,3 +33,4 @@ build.log
 
 # Lock files (for clean commits)
 Cargo.lock
+cli/config/contracts.env

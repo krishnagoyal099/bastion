@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # Configuration
 # ═══════════════════════════════════════════════════════════════════
-CSPR_CLOUD_API_KEY="${CSPR_CLOUD_API_KEY:-019baaf7-e535-7727-8cf9-be312a208df2}"
+CSPR_CLOUD_API_KEY="${CSPR_CLOUD_API_KEY:-019bb231-955c-722e-b0ba-377cccb8c2d6}"
 CSPR_CLOUD_RPC="${CSPR_CLOUD_RPC:-https://node.testnet.cspr.cloud/rpc}"
 CSPR_CLOUD_REST="${CSPR_CLOUD_REST:-https://api.testnet.cspr.cloud}"
 CHAIN_NAME="${CHAIN_NAME:-casper-test}"
@@ -76,8 +76,35 @@ get_account_transfers() {
 # Network Status
 # ═══════════════════════════════════════════════════════════════════
 get_block_height() {
-    local result
-    result=$(rpc_call "info_get_status" "{}")
+    local result height
+    
+    # Try REST API first (more reliable)
+    result=$(curl -s --max-time 3 -X GET "${CSPR_CLOUD_REST}/blocks?page=1&page_size=1" \
+        -H "accept: application/json" \
+        -H "authorization: $CSPR_CLOUD_API_KEY" 2>/dev/null)
+    
+    if [[ -n "$result" ]]; then
+        height=$(echo "$result" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    blocks = data.get('data', [])
+    if blocks and len(blocks) > 0:
+        print(blocks[0].get('height', 'N/A'))
+    else:
+        print('N/A')
+except:
+    print('N/A')
+" 2>/dev/null)
+        
+        if [[ "$height" != "N/A" && -n "$height" ]]; then
+            echo "$height"
+            return
+        fi
+    fi
+    
+    # Fallback to RPC
+    result=$(rpc_call "info_get_status" "{}" 3)
     echo "$result" | python3 -c "
 import sys, json
 try:
@@ -91,7 +118,19 @@ except:
 
 check_connection() {
     local result
-    result=$(rpc_call "info_get_status" "{}" 2>/dev/null)
+    
+    # Try REST API first (more reliable than RPC)
+    result=$(curl -s --max-time 5 -X GET "${CSPR_CLOUD_REST}/blocks?page=1&page_size=1" \
+        -H "accept: application/json" \
+        -H "authorization: $CSPR_CLOUD_API_KEY" 2>/dev/null)
+    
+    if echo "$result" | grep -q '"data"'; then
+        echo "connected"
+        return
+    fi
+    
+    # Fallback to RPC check
+    result=$(rpc_call "info_get_status" "{}" 5 2>/dev/null)
     if echo "$result" | grep -q "result"; then
         echo "connected"
     else
