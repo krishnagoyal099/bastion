@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect } from 'react';
+import React, { useRef, useLayoutEffect, createContext, useContext } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import { ProceduralRook } from './ProceduralRook';
@@ -77,7 +77,298 @@ const CONFIG = {
 };
 
 // ============================================================
-//   CINEMATIC ANIMATION EXPERIENCE
+//   ROOK ONLY EXPERIENCE (for separate layer)
+// ============================================================
+
+function RookExperience() {
+  const rookRef = useRef();
+  const { viewport } = useThree();
+  
+  useLayoutEffect(() => {
+    if (!rookRef.current) return;
+    const rook = rookRef.current;
+
+    // Calculate final positions
+    const fovRad = (CONFIG.camera.fov * Math.PI) / 180;
+    const cameraZ = CONFIG.camera.position[2];
+    const visibleHeight = 2 * cameraZ * Math.tan(fovRad / 2);
+    const visibleBottom = -visibleHeight / 2;
+    
+    const boardFinalY = visibleBottom + CONFIG.board.yOffset + 2.5;
+    const rookFinalY = boardFinalY + CONFIG.rook.finalYOffset;
+    
+    // === INITIAL STATES ===
+    gsap.set(rook.position, CONFIG.rook.startPosition);
+    gsap.set(rook.rotation, CONFIG.rook.startRotation);
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: "#root",
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+        }
+      });
+
+      // --- Phase 1: Top right → curving LEFT (0 → 12) ---
+      tl.to(rook.position, {
+        y: 1.8,
+        x: -0.8,
+        z: 0,
+        duration: 12,
+        ease: "none",
+      }, 0);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 0.5,
+        x: -0.2,
+        z: 0.7,
+        duration: 12,
+        ease: "none",
+      }, 0);
+
+      // --- Phase 2: LEFT → curving back RIGHT (12 → 28) ---
+      tl.to(rook.position, {
+        y: 0.4,
+        x: 0.9,
+        z: 0,
+        duration: 16,
+        ease: "none",
+      }, 12);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.2,
+        x: 0.1,
+        z: -0.4,
+        duration: 16,
+        ease: "none",
+      }, 12);
+
+      // --- Phase 3a: RIGHT → CENTER approach (28 → 36) ---
+      tl.to(rook.position, {
+        y: rookFinalY + 0.5,
+        x: 0.3,
+        z: 0,
+        duration: 8,
+        ease: "none",
+      }, 28);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.6,
+        x: 0,
+        z: -0.1,
+        duration: 8,
+        ease: "none",
+      }, 28);
+
+      // --- Phase 3b: CENTER approach → final position (36 → 44) ---
+      tl.to(rook.position, {
+        y: rookFinalY + 0.25,
+        x: 0,
+        z: 0,
+        duration: 8,
+        ease: "none",
+      }, 36);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.9,
+        x: 0,
+        z: 0,
+        duration: 8,
+        ease: "none",
+      }, 36);
+
+      // --- Phase 4: LANDING (44 → 50) ---
+      tl.to(rook.position, {
+        y: rookFinalY,
+        duration: 6,
+        ease: "none",
+      }, 44);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 2,
+        duration: 6,
+        ease: "none",
+      }, 44);
+
+    });
+
+    return () => ctx.revert();
+  }, [viewport]);
+
+  return (
+    <>
+      <ambientLight intensity={CONFIG.lighting.ambient} />
+      <directionalLight 
+        position={CONFIG.lighting.keyLight.position} 
+        intensity={CONFIG.lighting.keyLight.intensity} 
+        color="#ffffff"
+        castShadow
+      />
+      <pointLight 
+        position={CONFIG.lighting.rimLight.position} 
+        intensity={CONFIG.lighting.rimLight.intensity} 
+        color="#e8e8e8"
+      />
+      <pointLight 
+        position={CONFIG.lighting.fillLight.position} 
+        intensity={CONFIG.lighting.fillLight.intensity} 
+        color="#d0d0d0"
+      />
+      <Environment preset={CONFIG.environment} />
+      
+      <group ref={rookRef}>
+        <ProceduralRook scale={CONFIG.rook.scale} />
+      </group>
+    </>
+  );
+}
+
+// ============================================================
+//   BOARD ONLY EXPERIENCE (for separate layer)
+// ============================================================
+
+function BoardExperience() {
+  const boardRef = useRef();
+  const { viewport } = useThree();
+  
+  useLayoutEffect(() => {
+    if (!boardRef.current) return;
+    const board = boardRef.current;
+
+    const fovRad = (CONFIG.camera.fov * Math.PI) / 180;
+    const cameraZ = CONFIG.camera.position[2];
+    const visibleHeight = 2 * cameraZ * Math.tan(fovRad / 2);
+    const visibleBottom = -visibleHeight / 2;
+    
+    const boardFinalY = visibleBottom + CONFIG.board.yOffset + 2.5;
+    
+    // Board: Hidden below initially
+    gsap.set(board.position, { 
+      x: 0,
+      y: boardFinalY + CONFIG.board.startYOffset, 
+      z: 0 
+    });
+    gsap.set(board.scale, { x: 0.8, y: 0.8, z: 0.8 });
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: "#root",
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+        }
+      });
+
+      // --- BOARD EMERGES (28 → 40) ---
+      tl.to(board.position, {
+        y: boardFinalY,
+        duration: 12,
+        ease: "none",
+      }, 28);
+      
+      tl.to(board.scale, {
+        x: 1, y: 1, z: 1,
+        duration: 12,
+        ease: "none",
+      }, 28);
+
+    });
+
+    return () => ctx.revert();
+  }, [viewport]);
+
+  return (
+    <>
+      <ambientLight intensity={CONFIG.lighting.ambient} />
+      <directionalLight 
+        position={CONFIG.lighting.keyLight.position} 
+        intensity={CONFIG.lighting.keyLight.intensity} 
+        color="#ffffff"
+        castShadow
+      />
+      <pointLight 
+        position={CONFIG.lighting.rimLight.position} 
+        intensity={CONFIG.lighting.rimLight.intensity} 
+        color="#e8e8e8"
+      />
+      <Environment preset={CONFIG.environment} />
+      
+      <group 
+        ref={boardRef} 
+        rotation={[
+          CONFIG.board.rotation.x, 
+          CONFIG.board.rotation.y, 
+          CONFIG.board.rotation.z
+        ]}
+      >
+        <ChessBoard 
+          size={CONFIG.board.size} 
+          tiles={CONFIG.board.tiles} 
+          tileHeight={CONFIG.board.tileHeight} 
+        />
+      </group>
+    </>
+  );
+}
+
+// ============================================================
+//   SEPARATE CANVAS COMPONENTS FOR Z-INDEX CONTROL
+// ============================================================
+
+// Chessboard layer - will be at lower z-index (behind text)
+export function ChessBoardScene() {
+  return (
+    <div className="canvas-container">
+      <Canvas 
+        shadows
+        gl={{ 
+          antialias: true, 
+          toneMappingExposure: 1.4,
+          toneMapping: 3
+        }}
+        camera={{ 
+          position: CONFIG.camera.position, 
+          fov: CONFIG.camera.fov,
+          near: 0.1,
+          far: 100
+        }}
+      >
+        <BoardExperience />
+      </Canvas>
+    </div>
+  );
+}
+
+// Rook layer - will be at higher z-index (above text)
+export function RookOnlyScene() {
+  return (
+    <div className="canvas-container">
+      <Canvas 
+        shadows
+        gl={{ 
+          antialias: true, 
+          alpha: true,  // Transparent background
+          toneMappingExposure: 1.4,
+          toneMapping: 3
+        }}
+        camera={{ 
+          position: CONFIG.camera.position, 
+          fov: CONFIG.camera.fov,
+          near: 0.1,
+          far: 100
+        }}
+      >
+        <RookExperience />
+      </Canvas>
+    </div>
+  );
+}
+
+// ============================================================
+//   LEGACY DEFAULT EXPORT (combined scene)
 // ============================================================
 
 function Experience() {
@@ -283,10 +574,6 @@ function Experience() {
   );
 }
 
-// ============================================================
-//   CANVAS WRAPPER
-// ============================================================
-
 export default function RookScene() {
   return (
     <div className="canvas-container">
@@ -309,3 +596,4 @@ export default function RookScene() {
     </div>
   );
 }
+

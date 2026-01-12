@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import RookScene from './components/RookScene';
+import { ChessBoardScene, RookOnlyScene } from './components/RookScene';
 import InstallSnippet from './components/InstallSnippet';
 // ImagePlaceholder for feature sections
 const ImagePlaceholder = ({ label }) => (
@@ -71,9 +71,14 @@ function App() {
       <CustomCursor />
       <NoiseOverlay />
       
-      {/* Background 3D Scene - Fixed (Layer 3) */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <RookScene />
+      {/* Chessboard - Lower layer (behind the final text) */}
+      <div className="fixed inset-0 z-10 pointer-events-none">
+        <ChessBoardScene />
+      </div>
+      
+      {/* Rook - Higher layer (above the final text, but below other content) */}
+      <div className="fixed inset-0 z-20 pointer-events-none">
+        <RookOnlyScene />
       </div>
 
       {/* Grid Lines - Fixed Background (Layer 4) */}
@@ -83,14 +88,12 @@ function App() {
             <div className="w-px h-full bg-swiss-white/5 absolute right-1/4"></div>
       </div>
 
-      <div className="relative z-10 w-full min-h-screen">
+      <div className="relative z-30 w-full min-h-screen">
         
         {/* Navigation / Header */}
         <header className="fixed top-0 left-0 w-full p-8 flex justify-between items-start mix-blend-difference z-50">
             <div className="text-xs font-bold tracking-widest leading-none">
-                BASTION PROTOCOL<br/>
-                <br/>
-                <span className="text-xs font-bold tracking-widest leading-none text-black bg-swiss-white px-2 py-0.5 rounded-xl">V0.9.4 BETA</span>
+                BASTION PROTOCOL <span className="text-xs font-bold tracking-widest leading-none text-black bg-swiss-accent px-2 py-0.5 rounded-xl">V0.9.4 BETA</span>
             </div>
             <div className="text-right text-xs font-bold tracking-widest leading-none">
                 CASPER NETWORK v2
@@ -176,11 +179,13 @@ function App() {
                      </p>
                 </div>
             </section>
+        </div>
+      </div>
 
-            {/* FINAL SECTION - Clean layout */}
+      {/* FINAL SECTION - Outside main wrapper so rook appears above it */}
+      <div className="relative z-[15] w-full text-swiss-white">
             <section className="relative px-8 py-24 min-h-screen flex flex-col">
                 <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
-                    
                     {/* TAGLINE - at top */}
                     <div className="mb-auto">
                         <h2 className="text-[10vw] leading-[0.85] font-black tracking-tighter uppercase">
@@ -220,7 +225,6 @@ function App() {
                     </div>
                 </div>
             </footer>
-        </div>
       </div>
     </SmoothScroll>
   );
