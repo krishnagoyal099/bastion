@@ -113,96 +113,117 @@ function Experience() {
     gsap.set(board.scale, { x: 0.8, y: 0.8, z: 0.8 }); // Start slightly smaller
 
     const ctx = gsap.context(() => {
+      // Use scrub: true for frame-perfect, no-interpolation scrolling
+      // This eliminates the "snapping" that happens with numeric scrub values
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: "#root",
           start: "top top",
           end: "bottom bottom",
-          scrub: CONFIG.animation.scrubSpeed,
+          scrub: true, // Frame-perfect scrubbing - no catchup delay
         }
       });
 
       // ========================================================
-      // 🎬 S-CURVE PATH (matching your drawing)
-      // Right → Left curve → Right curve → Center bottom
+      // 🎬 CONTINUOUS S-CURVE PATH - Granular keyframes to prevent snapping
+      // Using "none" (linear) easing at phase boundaries for seamless transitions
       // ========================================================
       
-      // --- Start: Top right, curving LEFT (0 → 12) ---
+      // --- Phase 1: Top right → curving LEFT (0 → 12) ---
       tl.to(rook.position, {
-        y: 1.8,               // About 30% down
-        x: -0.8,              // LEFT side (peak of first curve)
+        y: 1.8,
+        x: -0.8,
         z: 0,
         duration: 12,
-        ease: "sine.inOut",   // Smooth curve
+        ease: "none",   // Linear - no acceleration discontinuity
       }, 0);
       
       tl.to(rook.rotation, {
         y: Math.PI * 0.5,
         x: -0.2,
-        z: 0.7,               // Still tilted
+        z: 0.7,
         duration: 12,
-        ease: "sine.inOut",
+        ease: "none",
       }, 0);
 
-      // --- Middle: LEFT → curving back RIGHT (12 → 28) ---
+      // --- Phase 2: LEFT → curving back RIGHT (12 → 28) ---
       tl.to(rook.position, {
-        y: 0.4,               // About 70% down
-        x: 0.9,               // RIGHT side (peak of second curve)
+        y: 0.4,
+        x: 0.9,
         z: 0,
         duration: 16,
-        ease: "sine.inOut",   // Smooth S-curve
+        ease: "none",   // Linear - smooth continuous motion
       }, 12);
       
       tl.to(rook.rotation, {
         y: Math.PI * 1.2,
         x: 0.1,
-        z: -0.4,              // Tilted other way
+        z: -0.4,
         duration: 16,
-        ease: "sine.inOut",
+        ease: "none",
       }, 12);
 
-      // --- End: RIGHT → CENTER bottom (28 → 42) ---
+      // --- Phase 3a: RIGHT → CENTER approach (28 → 36) ---
+      // Split into two sub-phases for more granular control
+      tl.to(rook.position, {
+        y: rookFinalY + 0.5, // Intermediate position above final
+        x: 0.3,              // Moving toward center
+        z: 0,
+        duration: 8,
+        ease: "none",
+      }, 28);
+      
+      tl.to(rook.rotation, {
+        y: Math.PI * 1.6,
+        x: 0,
+        z: -0.1,             // Almost upright
+        duration: 8,
+        ease: "none",
+      }, 28);
+
+      // --- BOARD EMERGES (28 → 40) - starts SAME time as Phase 3a ---
+      // Continuous motion with the rook approach
+      tl.to(board.position, {
+        y: boardFinalY,
+        duration: 12,
+        ease: "none",        // Linear - no snapping
+      }, 28);
+      
+      tl.to(board.scale, {
+        x: 1, y: 1, z: 1,
+        duration: 12,
+        ease: "none",
+      }, 28);
+
+      // --- Phase 3b: CENTER approach → final position (36 → 44) ---
       tl.to(rook.position, {
         y: rookFinalY + 0.25,
-        x: 0,                 // CENTER
+        x: 0,
         z: 0,
-        duration: 14,
-        ease: "sine.inOut",
-      }, 28);
+        duration: 8,
+        ease: "none",
+      }, 36);
       
       tl.to(rook.rotation, {
         y: Math.PI * 1.9,
         x: 0,
-        z: 0,                 // UPRIGHT
-        duration: 14,
-        ease: "sine.out",     // Settling
-      }, 28);
-
-      // --- BOARD EMERGES (30 → 38) ---
-      tl.to(board.position, {
-        y: boardFinalY,
+        z: 0,
         duration: 8,
-        ease: "power2.out",
-      }, 30);
-      
-      tl.to(board.scale, {
-        x: 1, y: 1, z: 1,
-        duration: 8,
-        ease: "power2.out",
-      }, 30);
+        ease: "none",
+      }, 36);
 
-      // --- LANDING (36 → 44) ---
+      // --- Phase 4: LANDING (44 → 50) ---
       tl.to(rook.position, {
         y: rookFinalY,
-        duration: 8,
-        ease: "power3.out",
-      }, 36);
+        duration: 6,
+        ease: "none",
+      }, 44);
       
       tl.to(rook.rotation, {
         y: Math.PI * 2,
-        duration: 8,
-        ease: "power2.out",
-      }, 36);
+        duration: 6,
+        ease: "none",
+      }, 44);
 
     });
 
